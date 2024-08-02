@@ -1,0 +1,13 @@
+{
+    "autoload": {
+        "psr-4": {
+            "Bref\\Cli\\": "src/"
+        }
+    },
+    "require": {
+        "symfony/console": "^7.1",
+        "laravel/prompts": "^0.1.24",
+        "symfony/http-client": "^7.1",
+        "symfony/filesystem": "^7.1"
+    }
+}
