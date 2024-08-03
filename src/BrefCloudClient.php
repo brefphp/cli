@@ -20,7 +20,7 @@ class BrefCloudClient
     {
         $this->url = self::getUrl();
         if ($token === null) {
-            $token = Config::getToken($this->url);
+            $token = Token::getToken($this->url);
         }
 
         $this->client = HttpClient::createForBaseUri($this->url, [
@@ -50,5 +50,65 @@ class BrefCloudClient
     public function getUserInfo(): array
     {
         return $this->client->request('GET', '/api/user')->toArray();
+    }
+
+    /**
+     * @return array{deploymentId: int, status: string, message: string, url: string, outputs?: array<string, string>}
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function startDeployment(string $environment, array $config, string|null $gitRef, string $gitMessage, ?string $awsAccountName = null): array
+    {
+        $body = [
+            'environment' => $environment,
+            'config' => $config,
+            'git_ref' => $gitRef,
+            'git_message' => $gitMessage,
+        ];
+        if ($awsAccountName) {
+            $body['aws_account_name'] = $awsAccountName;
+        }
+        return $this->client->request('POST', '/api/deployments', [
+            'json' => $body,
+        ])->toArray();
+    }
+
+    /**
+     * @return array{deploymentId: int, status: string, message: string, url: string, outputs?: array<string, string>}
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function getDeployment(int $deploymentId): array
+    {
+        return $this->client->request('GET', "/api/deployments/$deploymentId")->toArray();
+    }
+
+    public function markDeploymentFinished(
+        int $deploymentId,
+        bool $success,
+        string $logs,
+        ?string $region = null,
+        ?string $stackName = null,
+        ?array $outputs = null
+    ): void
+    {
+        $body = [
+            'success' => $success,
+            'logs' => $logs,
+        ];
+        if ($region) {
+            $body['region'] = $region;
+        }
+        if ($stackName) {
+            $body['stackName'] = $stackName;
+        }
+        if ($outputs) {
+            $body['outputs'] = $outputs;
+        }
+        $this->client->request('POST', "/api/deployments/$deploymentId/finished", [
+            'json' => $body,
+        ]);
     }
 }

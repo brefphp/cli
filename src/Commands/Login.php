@@ -3,7 +3,7 @@
 namespace Bref\Cli\Commands;
 
 use Bref\Cli\BrefCloudClient;
-use Bref\Cli\Config;
+use Bref\Cli\Token;
 use Bref\Cli\Helpers\Styles;
 use Exception;
 use Symfony\Component\Console\Command\Command;
@@ -55,7 +55,7 @@ class Login extends Command
             return 1;
         }
 
-        Config::storeToken($brefCloud->url, $token);
+        Token::storeToken($brefCloud->url, $token);
 
         $output->writeln([
             '',

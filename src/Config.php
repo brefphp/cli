@@ -3,61 +3,48 @@
 namespace Bref\Cli;
 
 use Exception;
-use JsonException;
-use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Yaml\Yaml;
 
 class Config
 {
-    public static function storeToken(string $url, string $token): void
+    public static function loadConfig(): array
     {
-        $config = self::loadConfig();
-        if (! isset($config['tokens'])) $config['tokens'] = [];
-        $config['tokens'][$url] = $token;
-        self::saveConfig($config);
-    }
-
-    public static function getToken(string $url): string
-    {
-        // For CI/CD
-        if ($_SERVER['BREF_TOKEN'] ?? false) {
-            return $_SERVER['BREF_TOKEN'];
+        if (is_file('serverless.yml')) {
+            $serverlessConfig = self::readYamlFile('serverless.yml');
+            if (empty($serverlessConfig['service']) || strpos($serverlessConfig['service'], '$') !== false) {
+                throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
+            }
+            $org = $serverlessConfig['custom']['brefOrg'] ?? '';
+            if (empty($org)) {
+                throw new Exception('To deploy a Serverless Framework project with Bref Cloud you must set the organization name in the "custom.brefOrg" field in "serverless.yml"');
+            }
+            return [
+                'name' => $serverlessConfig['service'],
+                'org' => $org,
+                'type' => 'serverless-framework',
+            ];
         }
 
-        $config = self::loadConfig();
-        $token = $config['tokens'][$url] ?? null;
-        if (! $token) {
-            throw new Exception('You are not logged in Bref Cloud. Please run "bref login" first.');
-        }
-        return $token;
+        throw new Exception('TODO: read bref.php config');
     }
 
-    private static function loadConfig(): array
+    private static function readYamlFile(string $fileName): array
     {
-        $configPath = self::getConfigPath();
-        if (! file_exists($configPath)) return [];
-        $json = file_get_contents($configPath);
-        if ($json === false) return [];
+        if (! is_file($fileName)) {
+            throw new Exception("Cannot parse \"$fileName\": file not found");
+        }
         try {
-            $array = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-            if (! is_array($array)) return [];
-            return $array;
-        } catch (JsonException) {
-            return [];
+            $fileContent = file_get_contents($fileName);
+            if ($fileContent === false) {
+                throw new Exception("Cannot read file $fileName");
+            }
+            $yamlContent = Yaml::parse($fileContent);
+            if (! is_array($yamlContent) || empty($yamlContent)) {
+                throw new Exception("invalid YAML content");
+            }
+            return $yamlContent;
+        } catch (Exception $e) {
+            throw new Exception("Cannot parse \"$fileName\": " . $e->getMessage(), 0, $e);
         }
-    }
-
-    private static function saveConfig(array $config): void
-    {
-        $configPath = self::getConfigPath();
-        $json = json_encode($config, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
-        $fs = new Filesystem;
-        $fs->dumpFile($configPath, $json);
-    }
-
-    private static function getConfigPath(): string
-    {
-        $home = $_SERVER['HOME'] ?? ($_SERVER['HOMEDRIVE'] . $_SERVER['HOMEPATH']);
-
-        return $home . DIRECTORY_SEPARATOR . '.bref' . DIRECTORY_SEPARATOR . 'config.json';
     }
 }
