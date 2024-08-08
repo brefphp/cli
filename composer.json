@@ -1,5 +1,6 @@
 {
     "name": "bref/cli",
+    "type": "project",
     "description": "Bref CLI",
     "autoload": {
         "psr-4": {
