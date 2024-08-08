@@ -37,7 +37,7 @@ class Application extends \Symfony\Component\Console\Application
                 $body = $e->getResponse()->toArray(false);
                 $message = $body['message'] ?? 'Unknown Bref Cloud error';
                 $statusCode = $e->getResponse()->getStatusCode();
-                $e = new Exception($message, $statusCode);
+                $e = new Exception("[$statusCode] $message", $statusCode);
             } catch (Throwable) {
             }
         }
