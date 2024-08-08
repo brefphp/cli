@@ -5,11 +5,15 @@
         }
     },
     "require": {
-        "symfony/console": "^7.1",
         "laravel/prompts": "^0.1.24",
-        "symfony/http-client": "^7.1",
+        "nunomaduro/termwind": "^2.0",
+        "symfony/console": "^7.1",
         "symfony/filesystem": "^7.1",
-        "symfony/yaml": "^7.1",
-        "symfony/process": "^7.1"
+        "symfony/http-client": "^7.1",
+        "symfony/process": "^7.1",
+        "symfony/yaml": "^7.1"
+    },
+    "config": {
+        "sort-packages": true
     }
 }

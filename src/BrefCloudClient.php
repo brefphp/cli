@@ -91,7 +91,7 @@ class BrefCloudClient
         string $logs,
         ?string $region = null,
         ?string $stackName = null,
-        ?array $outputs = null
+        ?array $outputs = null,
     ): void
     {
         $body = [
@@ -110,5 +110,19 @@ class BrefCloudClient
         $this->client->request('POST', "/api/deployments/$deploymentId/finished", [
             'json' => $body,
         ]);
+    }
+
+    /**
+     * @return array{success: bool, output: string}
+     */
+    public function startCommand(string $appName, string $environment, string $command): array
+    {
+        return $this->client->request('POST', '/api/commands', [
+            'json' => [
+                'appName' => $appName,
+                'environmentName' => $environment,
+                'consoleCommand' => $command,
+            ],
+        ])->toArray();
     }
 }

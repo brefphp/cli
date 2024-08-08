@@ -22,14 +22,14 @@ class Deploy extends Command
         $this
             ->setName('deploy')
             ->setDescription('Deploy the application')
-            ->addOption('env', 'e', InputOption::VALUE_REQUIRED, 'The environment to deploy to');
+            ->addOption('env', 'e', InputOption::VALUE_REQUIRED, 'The environment to deploy to', 'dev');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $output->writeln([Styles::brefHeader(), '']);
 
-        $environment = $input->getOption('env') ?: 'dev';
+        $environment = $input->getOption('env');
         $config = Config::loadConfig();
         $appName = $config['name'];
 
