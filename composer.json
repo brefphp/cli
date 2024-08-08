@@ -2,6 +2,7 @@
     "name": "bref/cli",
     "type": "project",
     "description": "Bref CLI",
+    "license": "proprietary",
     "autoload": {
         "psr-4": {
             "Bref\\Cli\\": "src/"
