@@ -4,11 +4,8 @@ namespace Bref\Cli\Commands;
 
 use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Config;
-use Bref\Cli\Helpers\BrefSpinner;
 use Bref\Cli\Helpers\Styles;
 use JsonException;
-use Symfony\Component\Console\Formatter\OutputFormatter;
-use Symfony\Component\Console\Helper\Helper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
