@@ -1,6 +1,14 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
 
-require __DIR__ . '/vendor/autoload.php';
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+} elseif (file_exists(__DIR__ . '/../autoload.php')) {
+    /** @noinspection PhpIncludeInspection */
+    require_once __DIR__ . '/../autoload.php';
+} else {
+    /** @noinspection PhpIncludeInspection */
+    require_once __DIR__ . '/../../autoload.php';
+}
 
 (new Bref\Cli\Application)->run();
