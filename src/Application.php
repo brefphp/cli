@@ -9,13 +9,8 @@ use Bref\Cli\Helpers\BrefSpinnerRenderer;
 use Exception;
 use Laravel\Prompts\Prompt;
 use Laravel\Prompts\Spinner;
-use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpClient\Exception\ClientException;
-use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Throwable;
 
 class Application extends \Symfony\Component\Console\Application

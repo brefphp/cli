@@ -36,11 +36,12 @@ class BrefCloudClient
 
     public static function getUrl(): string
     {
-        if ($_SERVER['BREF_LOCAL'] ?? false) {
-            return self::LOCAL_URL;
-        }
-        // TODO switch to prod
-        return self::STAGING_URL;
+        $env = $_SERVER['BREF_ENV'] ?? 'prod';
+        return match($env) {
+            'staging' => self::STAGING_URL,
+            'local' => self::LOCAL_URL,
+            default => self::PRODUCTION_URL,
+        };
     }
 
     /**
