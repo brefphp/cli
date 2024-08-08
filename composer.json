@@ -1,6 +1,6 @@
 {
     "name": "bref/cli",
-    "type": "project",
+    "type": "library",
     "description": "Bref CLI",
     "license": "proprietary",
     "bin": [
