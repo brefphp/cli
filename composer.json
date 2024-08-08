@@ -1,4 +1,5 @@
 {
+    "name": "bref/cli",
     "autoload": {
         "psr-4": {
             "Bref\\Cli\\": "src/"
