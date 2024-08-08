@@ -59,11 +59,11 @@ class Deploy extends Command
             $response = $e->getResponse();
             if ($response->getStatusCode() === 400) {
                 $body = $response->toArray(false);
-                if ($body['code'] === 'no_aws_account') {
+                if (($body['code'] ?? '') === 'no_aws_account') {
                     $progress->finish('error');
                     throw new Exception($body['message']);
                 }
-                if ($body['selectAwsAccount']) {
+                if ($body['selectAwsAccount'] ?? false) {
                     $progress->finish('paused');
                     $output->writeln(['', "Environment $appName/$environment does not exist and will be created."]);
                     $awsAccountName = $this->selectAwsAccount($body['selectAwsAccount'], $input, $output);
