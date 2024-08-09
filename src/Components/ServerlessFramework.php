@@ -91,6 +91,14 @@ class ServerlessFramework
                 throw new Exception('Missing region in the "serverless info" output');
             }
             $url = isset($deployOutputs['endpoint']) && is_string($deployOutputs['endpoint']) ? $deployOutputs['endpoint'] : null;
+            // Remove the `ANY - ` prefix
+            if ($url && str_starts_with($url, 'ANY - ')) {
+                $url = substr($url, strlen('ANY - '));
+            }
+            // Special case for the `server-side-website` construct
+            if (isset($deployOutputs['website']['url']) && is_string($deployOutputs['website']['url'])) {
+                $url = $deployOutputs['website']['url'];
+            }
             if (! isset($deployOutputs['Stack Outputs']) || ! is_array($deployOutputs['Stack Outputs'])) {
                 throw new Exception('Missing stack outputs in the "serverless info" output');
             }
