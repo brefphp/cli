@@ -20,6 +20,9 @@
         "symfony/process": "^5.2 || ^6.2 || ^7",
         "symfony/yaml": "^5.2 || ^6.2 || ^7"
     },
+    "require-dev": {
+        "phpstan/phpstan": "^1.11"
+    },
     "config": {
         "sort-packages": true
     }

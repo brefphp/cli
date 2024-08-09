@@ -9,6 +9,7 @@ use Bref\Cli\Helpers\BrefSpinner;
 use Bref\Cli\Helpers\Styles;
 use Exception;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -29,7 +30,7 @@ class Deploy extends Command
     {
         $output->writeln([Styles::brefHeader(), '']);
 
-        $environment = $input->getOption('env');
+        $environment = (string) $input->getOption('env');
         $config = Config::loadConfig();
         $appName = $config['name'];
 
@@ -88,6 +89,11 @@ class Deploy extends Command
         $output->writeln("<href={$deployment['url']}>" . Styles::gray($deployment['url']) . '</>');
 
         if ($config['type'] === 'serverless-framework') {
+            if ($credentials === null) {
+                $progress->finish('error');
+                throw new Exception('Internal error: Bref Cloud did not provide AWS credentials, it should have in its response. Please report this issue.');
+            }
+
             $component = new ServerlessFramework();
             $component->deploy($deploymentId, $environment, $credentials, $output, $progress, $brefCloud);
         }
@@ -123,14 +129,20 @@ class Deploy extends Command
         throw new Exception('Deployment timed out after 10 minutes');
     }
 
-    private function selectAwsAccount($selectAwsAccount, InputInterface $input, OutputInterface $output): string
+    /**
+     * @param array{ name: string }[] $selectAwsAccount
+     * @throws Exception
+     */
+    private function selectAwsAccount(array $selectAwsAccount, InputInterface $input, OutputInterface $output): string
     {
         $question = new ChoiceQuestion(
             'Please select the AWS account to deploy to:',
             array_map(fn($account) => $account['name'], $selectAwsAccount),
         );
-        $awsAccountName = $this->getHelper('question')->ask($input, $output, $question);
-        if (! $awsAccountName) {
+        /** @var QuestionHelper $helper */
+        $helper = $this->getHelper('question');
+        $awsAccountName = $helper->ask($input, $output, $question);
+        if (! is_string($awsAccountName)) {
             throw new Exception('No AWS account selected');
         }
         return $awsAccountName;

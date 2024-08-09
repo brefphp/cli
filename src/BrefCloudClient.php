@@ -45,6 +45,7 @@ class BrefCloudClient
     }
 
     /**
+     * @return array{id: int, name: string}
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface
      */
@@ -54,7 +55,19 @@ class BrefCloudClient
     }
 
     /**
-     * @return array{deploymentId: int, status: string, message: string, url: string, outputs?: array<string, string>}
+     * @param array<string, string> $config
+     * @return array{
+     *     deploymentId: int,
+     *     status: string,
+     *     message: string,
+     *     url: string,
+     *     outputs?: array<string, string>,
+     *     credentials?: array{
+     *         accessKeyId: string,
+     *         secretAccessKey: string,
+     *         sessionToken: string,
+     *     },
+     * }
      *
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface

@@ -11,10 +11,9 @@ use Symfony\Component\Yaml\Yaml;
 
 class ServerlessFramework
 {
-    public function __construct()
-    {
-    }
-
+    /**
+     * @param array{ accessKeyId: string, secretAccessKey: string, sessionToken: string } $awsCredentials
+     */
     public function deploy(int $deploymentId, string $environment, array $awsCredentials, OutputInterface $output, BrefSpinner $spinner, BrefCloudClient $brefCloud): void
     {
         $process = $this->serverlessExec('deploy', $environment, $awsCredentials);
@@ -55,6 +54,11 @@ class ServerlessFramework
         }
     }
 
+    /**
+     * @param array{ accessKeyId: string, secretAccessKey: string, sessionToken: string } $awsCredentials
+     * @return array<string, string>
+     * @throws Exception
+     */
     private function retrieveOutputs(string $environment, array $awsCredentials, OutputInterface $output): array
     {
         $process = $this->serverlessExec('info', $environment, $awsCredentials);
@@ -69,6 +73,9 @@ class ServerlessFramework
         // Remove API Gateway URLs with invalid YAML content from the output,
         // i.e. lines containing `  ANY - ` or `  GET - ` or `  POST - ` or `  PUT - ` or `  DELETE - ` or `  PATCH - ` or `  OPTIONS - ` or `  HEAD - `
         $infoOutput = preg_replace('/^ {2}(ANY|GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD) - .*\n/m', '', $infoOutput);
+        if (! $infoOutput) {
+            throw new Exception("Impossible to parse the output of 'serverless info':\n$infoOutput");
+        }
 
         try {
             $deployOutputs = Yaml::parse($infoOutput);
@@ -96,7 +103,7 @@ class ServerlessFramework
             $output->writeln($infoOutput);
             // Try to extract the section with `Stack Outputs` and parse it
             // The regex below matches everything indented with 2 spaces below "Stack Outputs:"
-            // If plugins add extra output afterwards, it should be ignored.
+            // If plugins add extra output afterward, it should be ignored.
             $outputsResults = preg_match('/Stack Outputs:\n(( {2}[ \S]+\n)+)/', $infoOutput, $matches);
             // Also try to extract the stack name and region
             $stackResults = preg_match('/stack: (.*)\n/', $infoOutput, $matches);
@@ -128,13 +135,16 @@ class ServerlessFramework
         throw new Exception("Impossible to parse the output of 'serverless info':\n$infoOutput");
     }
 
+    /**
+     * @param array{ accessKeyId: string, secretAccessKey: string, sessionToken: string } $awsCredentials
+     */
     private function serverlessExec(string $command, string $environment, array $awsCredentials): Process
     {
         return new Process(['serverless', $command, '--verbose', '--stage', $environment], env: [
             'SLS_DISABLE_AUTO_UPDATE' => '1',
-            'AWS_ACCESS_KEY_ID' => $awsCredentials['accessKeyId'] ?? '',
-            'AWS_SECRET_ACCESS_KEY' => $awsCredentials['secretAccessKey'] ?? '',
-            'AWS_SESSION_TOKEN' => $awsCredentials['sessionToken'] ?? '',
+            'AWS_ACCESS_KEY_ID' => $awsCredentials['accessKeyId'],
+            'AWS_SECRET_ACCESS_KEY' => $awsCredentials['secretAccessKey'],
+            'AWS_SESSION_TOKEN' => $awsCredentials['sessionToken'],
         ]);
     }
 }
