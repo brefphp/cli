@@ -140,7 +140,7 @@ class ServerlessFramework
      */
     private function serverlessExec(string $command, string $environment, array $awsCredentials): Process
     {
-        return new Process(['serverless', $command, '--verbose', '--stage', $environment], env: [
+        return new Process(['npx', '--yes', '@bref.sh/serverless', $command, '--verbose', '--stage', $environment], env: [
             'SLS_DISABLE_AUTO_UPDATE' => '1',
             'AWS_ACCESS_KEY_ID' => $awsCredentials['accessKeyId'],
             'AWS_SECRET_ACCESS_KEY' => $awsCredentials['secretAccessKey'],
