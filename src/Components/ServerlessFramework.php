@@ -24,6 +24,8 @@ class ServerlessFramework
             $logs .= $buffer;
         });
         if (! $process->isSuccessful()) {
+            $logs .= "Error while running 'serverless deploy', deployment failed\n";
+            $output->write("Error while running 'serverless deploy', deployment failed");
             $brefCloud->markDeploymentFinished($deploymentId, false, $logs);
             return;
         }
