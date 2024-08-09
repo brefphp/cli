@@ -45,8 +45,8 @@ class Deploy extends Command
         $progress->advance();
 
         // Retrieve the current git ref and commit message to serve as a label for the deployment
-        $gitRef = exec('git rev-parse HEAD') ?: null;
-        $gitMessage = exec('git log -1 --pretty=%B') ?: '';
+        $gitRef = shell_exec('git rev-parse HEAD') ?: null;
+        $gitMessage = trim(shell_exec('git log -1 --pretty=%B') ?: '');
         // Keep only the 1st line
         $gitMessage = explode("\n", $gitMessage)[0];
 
