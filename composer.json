@@ -12,6 +12,8 @@
         }
     },
     "require": {
+        "async-aws/core": "^1.22",
+        "aws/aws-sdk-php": "^3.319",
         "laravel/prompts": "^0.1.24",
         "nunomaduro/termwind": "^1.8 || ^2",
         "symfony/console": "^5.2 || ^6.2 || ^7",

@@ -2,9 +2,6 @@
 
 namespace Bref\Cli;
 
-use Bref\Cli\Commands\Command;
-use Bref\Cli\Commands\Deploy;
-use Bref\Cli\Commands\Login;
 use Bref\Cli\Helpers\BrefSpinnerRenderer;
 use Exception;
 use Laravel\Prompts\Prompt;
@@ -24,9 +21,10 @@ class Application extends \Symfony\Component\Console\Application
         ]);
         Prompt::theme('bref');
 
-        $this->add(new Login);
-        $this->add(new Deploy);
-        $this->add(new Command);
+        $this->add(new Commands\Login);
+        $this->add(new Commands\Deploy);
+        $this->add(new Commands\Command);
+        $this->add(new Commands\Connect);
     }
 
     public function renderThrowable(Throwable $e, OutputInterface $output): void

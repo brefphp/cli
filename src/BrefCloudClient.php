@@ -128,6 +128,9 @@ class BrefCloudClient
 
     /**
      * @return array{success: bool, output: string}
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
      */
     public function startCommand(string $appName, string $environment, string $command): array
     {
@@ -138,5 +141,56 @@ class BrefCloudClient
                 'consoleCommand' => $command,
             ],
         ])->toArray();
+    }
+
+    /**
+     * @return list<array{id: int, name: string, role_arn: string, team_id: int}>
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function listAwsAccounts(): array
+    {
+        return $this->client->request('GET', '/api/aws-accounts')->toArray();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function listTeams(): array
+    {
+        return $this->client->request('GET', '/api/teams')->toArray();
+    }
+
+    /**
+     * @return array{
+     *     region: string,
+     *     template_url: string,
+     *     stack_name: string,
+     *     bref_cloud_account_id: string,
+     *     unique_external_id: string,
+     *     role_name: string|null,
+     * }
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function prepareConnectAwsAccount(int $teamId): array
+    {
+        return $this->client->request('GET', '/api/aws-accounts/connect?team_id=' . $teamId)->toArray();
+    }
+
+    public function addAwsAccount(mixed $teamId, string $accountName, string $roleArn): void
+    {
+        $this->client->request('POST', '/api/aws-accounts', [
+            'json' => [
+                'team_id' => $teamId,
+                'name' => $accountName,
+                'role_arn' => $roleArn,
+            ],
+        ]);
     }
 }
