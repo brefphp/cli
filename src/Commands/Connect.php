@@ -2,8 +2,8 @@
 
 namespace Bref\Cli\Commands;
 
-use AsyncAws\Core\Sts\StsClient;
 use Aws\CloudFormation\CloudFormationClient;
+use Aws\Sts\StsClient;
 use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Helpers\BrefSpinner;
 use Bref\Cli\Helpers\CloudFormation;
@@ -146,7 +146,7 @@ class Connect extends Command
         $sts = new StsClient([
             'profile' => $profile,
         ]);
-        $accountId = $sts->getCallerIdentity()->getAccount();
+        $accountId = $sts->getCallerIdentity()->toArray()['Account'] ?? null;
         if (! $accountId) {
             throw new RuntimeException('Could not determine the AWS account ID');
         }
