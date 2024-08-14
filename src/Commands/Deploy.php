@@ -2,19 +2,22 @@
 
 namespace Bref\Cli\Commands;
 
+use Amp\Process\Process;
 use Bref\Cli\BrefCloudClient;
+use Bref\Cli\Cli\IO;
 use Bref\Cli\Components\ServerlessFramework;
 use Bref\Cli\Config;
-use Bref\Cli\Helpers\BrefSpinner;
 use Bref\Cli\Helpers\Styles;
 use Exception;
+use Revolt\EventLoop;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use function Amp\ByteStream\buffer;
+use function Amp\delay;
 
 class Deploy extends Command
 {
@@ -28,29 +31,33 @@ class Deploy extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $output->writeln([Styles::brefHeader(), '']);
+        IO::writeln([Styles::brefHeader(), '']);
 
-        $environment = (string) $input->getOption('env');
+        /** @var string $environment */
+        $environment = $input->getOption('env');
         $config = Config::loadConfig();
         $appName = $config['name'];
 
-        $output->writeln(["Deploying $appName to environment $environment", '']);
+        IO::writeln([
+            sprintf("Deploying %s to environment %s", Styles::bold($appName), Styles::bold($environment)),
+            '',
+        ]);
 
-        $progress = new BrefSpinner($output);
-        $progress->start('deploying');
+        IO::spin('deploying');
 
         // Upload artifacts
         // ...
 
-        $progress->advance();
-
         // Retrieve the current git ref and commit message to serve as a label for the deployment
-        $gitRef = shell_exec('git rev-parse HEAD') ?: null;
-        $gitMessage = trim(shell_exec('git log -1 --pretty=%B') ?: '');
+        $gifRefProcess = Process::start('git rev-parse HEAD');
+        $gitMessageProcess = Process::start('git log -1 --pretty=%B');
+        // Await both processes
+        $gifRefProcess->join();
+        $gitMessageProcess->join();
+        $gitRef = buffer($gifRefProcess->getStdout());
+        $gitMessage = trim(buffer($gitMessageProcess->getStdout()));
         // Keep only the 1st line
         $gitMessage = explode("\n", $gitMessage)[0];
-
-        $progress->advance();
 
         $brefCloud = new BrefCloudClient;
         try {
@@ -61,71 +68,68 @@ class Deploy extends Command
             if ($response->getStatusCode() === 400) {
                 $body = $response->toArray(false);
                 if (($body['code'] ?? '') === 'no_aws_account') {
-                    $progress->finish('error');
+                    IO::spinError();
                     throw new Exception($body['message']);
                 }
                 if ($body['selectAwsAccount'] ?? false) {
-                    $progress->finish('paused');
-                    $output->writeln(['', "Environment $appName/$environment does not exist and will be created."]);
-                    $awsAccountName = $this->selectAwsAccount($body['selectAwsAccount'], $input, $output);
-                    $progress->start('deploying');
+                    IO::spinClear();
+                    IO::writeln(['', "Environment $appName/$environment does not exist and will be created."]);
+                    $awsAccountName = $this->selectAwsAccount($body['selectAwsAccount']);
+                    IO::spin('deploying');
                     $deployment = $brefCloud->startDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName);
                 } else {
-                    $progress->finish('error');
+                    IO::spinError();
                     throw $e;
                 }
             } else {
-                $progress->finish('error');
+                IO::spinError();
                 throw $e;
             }
         }
 
-        $progress->advance();
-
         $deploymentId = $deployment['deploymentId'];
-        $message = $deployment['message'];
         $credentials = $deployment['credentials'] ?? null;
 
-        $output->writeln("<href={$deployment['url']}>" . Styles::gray($deployment['url']) . '</>');
+        IO::writeln("<href={$deployment['url']}>" . Styles::gray($deployment['url']) . '</>');
 
         if ($config['type'] === 'serverless-framework') {
             if ($credentials === null) {
-                $progress->finish('error');
+                IO::spinError();
                 throw new Exception('Internal error: Bref Cloud did not provide AWS credentials, it should have in its response. Please report this issue.');
             }
 
             $component = new ServerlessFramework();
-            $component->deploy($deploymentId, $environment, $credentials, $output, $progress, $brefCloud);
+            $component->deploy($deploymentId, $environment, $credentials, $brefCloud);
         }
 
         $startTime = time();
 
         // Timeout after 10 minutes
         while (time() - $startTime < 600) {
-            $progress->advance();
-
             $deployment = $brefCloud->getDeployment($deploymentId);
             if ($deployment['status'] === 'success') {
-                $output->writeln(['', Styles::gray('Deployment logs: ' . $deployment['url'])]);
-                $progress->finish($deployment['message']);
+                IO::spinSuccess($deployment['message']);
                 if ($deployment['outputs'] ?? null) {
-                    $output->writeln('');
+                    IO::writeln('');
                     foreach ($deployment['outputs'] as $key => $value) {
-                        $output->writeln("$key: $value");
+                        IO::writeln("$key: $value");
                     }
                 }
                 return 0;
             }
             if ($deployment['status'] === 'failed') {
-                $progress->finish($deployment['message']);
-                $output->writeln(['', Styles::gray('Deployment logs: ' . $deployment['url'])]);
+                IO::spinError($deployment['message']);
+                IO::writeln(['', Styles::gray('Deployment logs: ' . $deployment['url'])]);
                 return 1;
             }
-            sleep(1);
+            delay(1);
         }
 
-        $progress->finish('timeout');
-        $output->writeln(['', Styles::gray('Deployment logs: ' . $deployment['url'])]);
+        IO::spinError('timeout');
+        IO::writeln(['', Styles::gray('Deployment logs: ' . $deployment['url'])]);
+
+        EventLoop::run();
+
         throw new Exception('Deployment timed out after 10 minutes');
     }
 
@@ -133,15 +137,12 @@ class Deploy extends Command
      * @param array{ name: string }[] $selectAwsAccount
      * @throws Exception
      */
-    private function selectAwsAccount(array $selectAwsAccount, InputInterface $input, OutputInterface $output): string
+    private function selectAwsAccount(array $selectAwsAccount): string
     {
-        $question = new ChoiceQuestion(
+        $awsAccountName = IO::ask(new ChoiceQuestion(
             'Please select the AWS account to deploy to:',
             array_map(fn($account) => $account['name'], $selectAwsAccount),
-        );
-        /** @var QuestionHelper $helper */
-        $helper = $this->getHelper('question');
-        $awsAccountName = $helper->ask($input, $output, $question);
+        ));
         if (! is_string($awsAccountName)) {
             throw new Exception('No AWS account selected');
         }

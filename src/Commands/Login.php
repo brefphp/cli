@@ -3,9 +3,9 @@
 namespace Bref\Cli\Commands;
 
 use Bref\Cli\BrefCloudClient;
+use Bref\Cli\Cli\IO;
 use Bref\Cli\Token;
 use Bref\Cli\Helpers\Styles;
-use Exception;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -23,10 +23,10 @@ class Login extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $output->writeln([Styles::brefHeader(), '']);
+        IO::writeln([Styles::brefHeader(), '']);
 
         $url = BrefCloudClient::getUrl() . '/cli/connect';
-        $output->writeln([
+        IO::writeln([
             'Please open the following URL and click the "Connect CLI" menu.',
             Styles::gray(Styles::underline($url)),
             '',
@@ -35,14 +35,13 @@ class Login extends Command
         ]);
         $this->open($url);
 
-        $helper = $this->getHelper('question');
         $question = new Question('Bref Cloud token:');
         $question->setHidden(true)
             ->setHiddenFallback(false)
             ->setTrimmable(true);
-        $token = $helper->ask($input, $output, $question);
-        if (! $token) {
-            $output->writeln('No token provided, aborting.');
+        $token = IO::ask($question);
+        if (! (is_string($token) && ! empty($token))) {
+            IO::writeln('No token provided, aborting.');
             return 1;
         }
 
@@ -51,13 +50,13 @@ class Login extends Command
         try {
             $user = $brefCloud->getUserInfo();
         } catch (HttpExceptionInterface $e) {
-            $output->writeln(Styles::red("There was an error while connecting to Bref Cloud using the token, is the token valid?\nError: " . $e->getMessage()));
+            IO::writeln(Styles::red("There was an error while connecting to Bref Cloud using the token, is the token valid?\nError: " . $e->getMessage()));
             return 1;
         }
 
         Token::storeToken($brefCloud->url, $token);
 
-        $output->writeln([
+        IO::writeln([
             '',
             "Welcome to Bref Cloud {$user['name']}, you are now logged in 🎉",
         ]);

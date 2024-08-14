@@ -2,10 +2,11 @@
 
 namespace Bref\Cli;
 
-use Bref\Cli\Helpers\BrefSpinnerRenderer;
+use Bref\Cli\Cli\IO;
 use Exception;
-use Laravel\Prompts\Prompt;
-use Laravel\Prompts\Spinner;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpClient\Exception\ClientException;
 use Throwable;
@@ -16,15 +17,19 @@ class Application extends \Symfony\Component\Console\Application
     {
         parent::__construct('bref');
 
-        Prompt::addTheme('bref', [
-            Spinner::class => BrefSpinnerRenderer::class,
-        ]);
-        Prompt::theme('bref');
-
         $this->add(new Commands\Login);
         $this->add(new Commands\Deploy);
         $this->add(new Commands\Command);
         $this->add(new Commands\Connect);
+    }
+
+    public function run(?InputInterface $input = null, ?OutputInterface $output = null): int
+    {
+        $input ??= new ArgvInput();
+        $output ??= new ConsoleOutput();
+        IO::init($input, $output);
+
+        return parent::run($input, $output);
     }
 
     public function renderThrowable(Throwable $e, OutputInterface $output): void

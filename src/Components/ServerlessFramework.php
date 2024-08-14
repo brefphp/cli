@@ -2,44 +2,57 @@
 
 namespace Bref\Cli\Components;
 
+use Amp\Process\Process;
+use Amp\Process\ProcessException;
 use Bref\Cli\BrefCloudClient;
-use Bref\Cli\Helpers\BrefSpinner;
+use Bref\Cli\Cli\IO;
 use Exception;
-use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml\Yaml;
+use function Amp\async;
+use function Amp\ByteStream\buffer;
 
 class ServerlessFramework
 {
     /**
      * @param array{ accessKeyId: string, secretAccessKey: string, sessionToken: string } $awsCredentials
+     * @throws ProcessException
      */
-    public function deploy(int $deploymentId, string $environment, array $awsCredentials, OutputInterface $output, BrefSpinner $spinner, BrefCloudClient $brefCloud): void
+    public function deploy(int $deploymentId, string $environment, array $awsCredentials, BrefCloudClient $brefCloud): void
     {
         $process = $this->serverlessExec('deploy', $environment, $awsCredentials);
         $logs = '';
-        $process->run(function ($type, $buffer) use (&$logs, $spinner, $output) {
-            $spinner->advance();
-            $output->write($buffer);
-            $logs .= $buffer;
+        async(function () use ($process, &$logs) {
+            while (($chunk = $process->getStdout()->read()) !== null) {
+                $chunk = trim($chunk);
+                if (empty($chunk)) continue;
+                IO::verbose($chunk);
+                $logs .= $chunk;
+            }
         });
-        if (! $process->isSuccessful()) {
+        async(function () use ($process, &$logs) {
+            while (($chunk = $process->getStderr()->read()) !== null) {
+                $chunk = trim($chunk);
+                if (empty($chunk)) continue;
+                if (str_contains($chunk, 'https://dashboard.bref.sh')) continue;
+                IO::verbose($chunk);
+                $logs .= $chunk;
+            }
+        });
+        $exitCode = $process->join();
+        if ($exitCode > 0) {
             $logs .= "Error while running 'serverless deploy', deployment failed\n";
-            $output->write("Error while running 'serverless deploy', deployment failed");
+            IO::writeln("Error while running 'serverless deploy', deployment failed");
             $brefCloud->markDeploymentFinished($deploymentId, false, $logs);
             return;
         }
 
-        $spinner->advance();
-
         $hasChanges = ! str_contains($logs, 'No changes to deploy. Deployment skipped.');
         if ($hasChanges) {
             try {
-                $outputs = $this->retrieveOutputs($environment, $awsCredentials, $output);
+                $outputs = $this->retrieveOutputs($environment, $awsCredentials);
             } catch (Exception $e) {
                 $logs .= $e->getMessage();
                 $logs .= $e->getTraceAsString();
-                $spinner->advance();
                 $brefCloud->markDeploymentFinished($deploymentId, false, $logs);
                 return;
             }
@@ -47,8 +60,6 @@ class ServerlessFramework
             $region = $outputs['region'];
             $stackName = $outputs['stack'];
             unset($outputs['stack'], $outputs['region']);
-
-            $spinner->advance();
 
             $brefCloud->markDeploymentFinished($deploymentId, true, $logs, $region, $stackName, $outputs);
         } else {
@@ -61,11 +72,11 @@ class ServerlessFramework
      * @return array<string, string>
      * @throws Exception
      */
-    private function retrieveOutputs(string $environment, array $awsCredentials, OutputInterface $output): array
+    private function retrieveOutputs(string $environment, array $awsCredentials): array
     {
         $process = $this->serverlessExec('info', $environment, $awsCredentials);
-        $process->mustRun();
-        $infoOutput = $process->getOutput();
+        $process->join();
+        $infoOutput = buffer($process->getStdout());
         // Remove non-ASCII characters
         $infoOutput = preg_replace('/[^\x00-\x7F]/', '', $infoOutput);
         if (! $infoOutput) {
@@ -108,9 +119,8 @@ class ServerlessFramework
                 'region' => $deployOutputs['region'],
             ], $url ? ['url' => $url] : [], $cfOutputs);
         } catch (Exception $e) {
-            // TODO log verbose
-            $output->writeln($e->getMessage());
-            $output->writeln($infoOutput);
+            IO::verbose($e->getMessage());
+            IO::verbose($infoOutput);
             // Try to extract the section with `Stack Outputs` and parse it
             // The regex below matches everything indented with 2 spaces below "Stack Outputs:"
             // If plugins add extra output afterward, it should be ignored.
@@ -136,7 +146,7 @@ class ServerlessFramework
                         'stack' => $stackName,
                         'region' => $region,
                     ], $stackOutputs);
-                } catch (Exception $e) {
+                } catch (Exception) {
                     // Pass to generic error
                 }
             }
@@ -147,14 +157,18 @@ class ServerlessFramework
 
     /**
      * @param array{ accessKeyId: string, secretAccessKey: string, sessionToken: string } $awsCredentials
+     * @throws ProcessException
      */
     private function serverlessExec(string $command, string $environment, array $awsCredentials): Process
     {
-        return new Process(['npx', '--yes', '@bref.sh/serverless', $command, '--verbose', '--stage', $environment], env: [
+        $env = [
             'SLS_DISABLE_AUTO_UPDATE' => '1',
             'AWS_ACCESS_KEY_ID' => $awsCredentials['accessKeyId'],
             'AWS_SECRET_ACCESS_KEY' => $awsCredentials['secretAccessKey'],
             'AWS_SESSION_TOKEN' => $awsCredentials['sessionToken'],
-        ]);
+        ];
+        // Merge the current environment with the AWS credentials
+        $env = array_merge(getenv(), $env);
+        return Process::start(['npx', '--yes', '@bref.sh/serverless', $command, '--verbose', '--stage', $environment], environment: $env);
     }
 }

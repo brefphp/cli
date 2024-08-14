@@ -5,13 +5,12 @@ namespace Bref\Cli\Commands;
 use Aws\CloudFormation\CloudFormationClient;
 use Aws\Sts\StsClient;
 use Bref\Cli\BrefCloudClient;
-use Bref\Cli\Helpers\BrefSpinner;
+use Bref\Cli\Cli\IO;
 use Bref\Cli\Helpers\CloudFormation;
 use Bref\Cli\Helpers\Styles;
 use Exception;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -30,18 +29,18 @@ class Connect extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $output->writeln([
+        IO::writeln([
             Styles::brefHeader(),
             '',
             'Retrieving information...',
         ]);
 
-        // @phpstan-ignore-next-line
-        $awsProfile = (string) $input->getOption('profile');
+        /** @var string $awsProfile */
+        $awsProfile = $input->getOption('profile');
 
         $accountId = $this->getCurrentAwsAccountId($awsProfile);
         // TODO verbose only
-        $output->writeln('Current AWS account ID: ' . $accountId);
+        IO::writeln('Current AWS account ID: ' . $accountId);
 
         $brefCloud = new BrefCloudClient;
         $existingAccounts = $brefCloud->listAwsAccounts();
@@ -58,19 +57,19 @@ class Connect extends Command
         }
 
         if (! $teamId) {
-            $teamId = $this->selectTeam($brefCloud, $input, $output);
+            $teamId = $this->selectTeam($brefCloud);
         }
 
         $details = $brefCloud->prepareConnectAwsAccount($teamId);
 
         if ($isConnected) {
-            $output->writeln([
+            IO::writeln([
                 'This AWS account is already connected to Bref Cloud.',
                 '',
                 'The connection will be refreshed now.',
             ]);
         } else {
-            $output->writeln([
+            IO::writeln([
                 'Connecting Bref Cloud to your AWS account...',
                 '',
                 Styles::gray("This will create a CloudFormation stack named '{$details['stack_name']}' in your AWS account. This stack contains an IAM role that allows Bref Cloud to access your account. This is the recommended method to connect SaaS services to AWS accounts 👌"),
@@ -82,8 +81,6 @@ class Connect extends Command
                 'Please name this AWS account in Bref Cloud.',
             ]);
 
-            /** @var QuestionHelper $helper */
-            $helper = $this->getHelper('question');
             $question = new Question('Display name:');
             $question->setValidator(function (string $answer) use ($existingAccounts): string {
                 // Check if the name is already taken
@@ -94,21 +91,19 @@ class Connect extends Command
                 }
                 return $answer;
             });
-            $accountName = $helper->ask($input, $output, $question);
+            $accountName = IO::ask($question);
             if (! is_string($accountName)) {
                 throw new Exception('No account name provided');
             }
         }
 
-        $progress = new BrefSpinner($output);
-        $progress->start('connecting');
+        IO::spin('connecting');
 
         $cloudFormationClient = new CloudFormationClient([
             'profile' => $awsProfile,
             'region' => $details['region'],
         ]);
-        // TODO verbose
-        $output->writeln(['Deploying CloudFormation stack', '']);
+        IO::verbose(['Deploying CloudFormation stack']);
         $stackParameters = [
             'BrefCloudAccountId' => $details['bref_cloud_account_id'],
             'UniqueExternalId' => $details['unique_external_id'],
@@ -124,16 +119,16 @@ class Connect extends Command
         );
 
         if (!$isConnected && $accountName) {
-            $progress->setMessage('adding to Bref Cloud');
+            IO::spin('adding to Bref Cloud');
 
             $stackOutputs = $cloudFormation->getStackOutputs($details['stack_name']);
             $roleArn = $stackOutputs['BrefCloudRoleArn'];
             $brefCloud->addAwsAccount($teamId, $accountName, $roleArn);
         }
 
-        $progress->finish('connected');
+        IO::spinSuccess('connected');
 
-        $output->writeln([
+        IO::writeln([
             '',
             'The AWS account is now connected to Bref Cloud 🎉',
         ]);
@@ -153,7 +148,7 @@ class Connect extends Command
         return $accountId;
     }
 
-    private function selectTeam(BrefCloudClient $brefCloud, InputInterface $input, OutputInterface $output): int
+    private function selectTeam(BrefCloudClient $brefCloud): int
     {
         $teams = $brefCloud->listTeams();
         if (count($teams) === 0) {
@@ -162,13 +157,10 @@ class Connect extends Command
         if (count($teams) === 1) {
             return $teams[0]['id'];
         }
-        /** @var QuestionHelper $helper */
-        $helper = $this->getHelper('question');
-        $question = new ChoiceQuestion(
+        $teamName = IO::ask(new ChoiceQuestion(
             'You have access to multiple teams in Bref Cloud. Please select which one to use:',
             array_map(fn($team) => $team['name'], $teams),
-        );
-        $teamName = $helper->ask($input, $output, $question);
+        ));
         if (! is_string($teamName)) {
             throw new Exception('No team selected');
         }

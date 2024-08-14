@@ -3,6 +3,7 @@
 namespace Bref\Cli\Commands;
 
 use Bref\Cli\BrefCloudClient;
+use Bref\Cli\Cli\IO;
 use Bref\Cli\Config;
 use Bref\Cli\Helpers\Styles;
 use JsonException;
@@ -10,7 +11,6 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use function Termwind\render;
 
 class Command extends \Symfony\Component\Console\Command\Command
 {
@@ -26,8 +26,11 @@ class Command extends \Symfony\Component\Console\Command\Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        /** @var string $command */
         $command = $input->getArgument('args');
+        /** @var string $environment */
         $environment = $input->getOption('env');
+        /** @var string|null $appName */
         $appName = $input->getOption('app');
         if (! $appName) {
             $appName = Config::loadConfig()['name'];
@@ -37,30 +40,27 @@ class Command extends \Symfony\Component\Console\Command\Command
         $result = $brefCloud->startCommand($appName, $environment, $command);
 
         if ($result['success']) {
-            $output->writeln($result['output']);
+            IO::writeln($result['output']);
         } else {
             try {
                 $errorDetails = json_decode($result['output'], true, 512, JSON_THROW_ON_ERROR);
-                if (isset($errorDetails['errorType'], $errorDetails['errorMessage'])) {
+                if (is_array($errorDetails) && isset($errorDetails['errorType'], $errorDetails['errorMessage'])) {
                     $message = nl2br($errorDetails['errorMessage']);
-                    render(<<<HTML
-                        <div>
-                            <div class="my-1">
-                                <span class="px-1 bg-red-500">ERROR</span>
-                                <span class="px-1 text-gray-500">{$errorDetails['errorType']}</span>
-                            </div>
-                            <div>$message</div>
-                        </div>
-                    HTML);
+                    IO::writeln([
+                        '',
+                        Styles::red('ERROR'),
+                        Styles::gray($errorDetails['errorType']),
+                        '',
+                        $message,
+                    ]);
                     if (isset($errorDetails['stackTrace']) && is_array($errorDetails['stackTrace'])) {
-                        // TODO log trace to verbose
-                        $trace = implode("<br>", $errorDetails['stackTrace']);
+                        IO::verbose($errorDetails['stackTrace']);
                     }
                 } else {
-                    $output->writeln(Styles::red($result['output']));
+                    IO::writeln(Styles::red($result['output']));
                 }
             } catch (JsonException) {
-                $output->writeln(Styles::red($result['output']));
+                IO::writeln(Styles::red($result['output']));
             }
         }
 

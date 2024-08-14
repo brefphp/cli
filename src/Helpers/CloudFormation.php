@@ -4,6 +4,7 @@ namespace Bref\Cli\Helpers;
 
 use Aws\CloudFormation\CloudFormationClient;
 use Aws\CloudFormation\Exception\CloudFormationException;
+use Bref\Cli\Cli\IO;
 use Exception;
 
 /**
@@ -32,13 +33,13 @@ class CloudFormation
             $this->cloudFormation->describeStacks([
                 'StackName' => $stackName,
             ]);
-            // output()->verbose("Updating CloudFormation stack $stackName");
+            IO::verbose("Updating CloudFormation stack $stackName");
         } catch (CloudFormationException $e) {
             if ($e->getAwsErrorCode() === 'ValidationError' && str_contains(($e->getAwsErrorMessage() ?: $e->getMessage()), 'does not exist')) {
                 // This is not an error, it just means that the stack does not exist yet
                 $operation = fn(...$params) => $this->cloudFormation->createStack(...$params);
                 $waiter = 'StackCreateComplete';
-                // output()->verbose("Creating CloudFormation stack $stackName");
+                IO::verbose("Creating CloudFormation stack $stackName");
             } else {
                 throw $e;
             }
@@ -63,15 +64,15 @@ class CloudFormation
             }
             // In case of "is in ROLLBACK_COMPLETE state and can not be updated" we delete the stack
             if ($e->getAwsErrorCode() === 'ValidationError' && str_contains($e->getMessage(), 'ROLLBACK_COMPLETE')) {
-                // output()->verbose("The CloudFormation stack $stackName is in ROLLBACK_COMPLETE state and cannot be updated. Deleting the stack.");
+                IO::verbose("The CloudFormation stack $stackName is in ROLLBACK_COMPLETE state and cannot be updated. Deleting the stack.");
                 $this->delete($stackName);
-                // output()->verbose('The stack has been deleted. Retrying the deployment.');
+                IO::verbose('The stack has been deleted. Retrying the deployment.');
                 return $this->deploy($stackName, $templateUrl, $parameters);
             }
             throw $e;
         }
 
-        // output()->verbose("Waiting for CloudFormation stack $stackName to be deployed");
+        IO::verbose("Waiting for CloudFormation stack $stackName to be deployed");
 
         try {
             $this->cloudFormation->waitUntil($waiter, [
@@ -87,10 +88,9 @@ class CloudFormation
             $detailedError = null;
             try {
                 $detailedError = $this->retrieveDetailedDeployError($stackName);
-            } catch (Exception) {
+            } catch (Exception $subError) {
                 // Ignore
-                // TODO
-                // output()->verbose('Failed to retrieve details about the deployment error: ' . $subError->getMessage());
+                IO::verbose('Failed to retrieve details about the deployment error' . $subError->getMessage());
             }
             throw $detailedError ? new Exception($detailedError) : $e;
         }
