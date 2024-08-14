@@ -34,6 +34,7 @@ class IO
 
         // Store verbose logs in the temp directory
         $logsFilePath = sys_get_temp_dir() . '/bref.log';
+        var_dump($logsFilePath);
         self::$logsFileResource = fopen($logsFilePath, 'wb');
     }
 
@@ -136,8 +137,11 @@ class IO
 
         $message = is_array($messages) ? implode(PHP_EOL, $messages) : $messages;
         // Strip ANSI
-        $message = preg_replace('/\x1b\[[0-9;]*m/', '', $message);
-        fwrite(self::$logsFileResource, $message . PHP_EOL);
+        $message = (string) preg_replace('/\x1b\[[0-9;]*m/', '', $message);
+        foreach (explode(PHP_EOL, $message) as $line) {
+            if (empty(trim($line))) continue;
+            fwrite(self::$logsFileResource, $line . PHP_EOL);
+        }
     }
 
     /**
@@ -147,6 +151,7 @@ class IO
     {
         $message = is_array($messages) ? implode(PHP_EOL, $messages) : $messages;
         foreach (explode(PHP_EOL, $message) as $line) {
+            if (empty(trim($line))) continue;
             self::safeWrite(Styles::gray('› ' . $line));
         }
     }

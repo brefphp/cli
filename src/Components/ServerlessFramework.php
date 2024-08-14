@@ -23,7 +23,6 @@ class ServerlessFramework
         $logs = '';
         async(function () use ($process, &$logs) {
             while (($chunk = $process->getStdout()->read()) !== null) {
-                $chunk = trim($chunk);
                 if (empty($chunk)) continue;
                 IO::verbose($chunk);
                 $logs .= $chunk;
@@ -31,7 +30,6 @@ class ServerlessFramework
         });
         async(function () use ($process, &$logs) {
             while (($chunk = $process->getStderr()->read()) !== null) {
-                $chunk = trim($chunk);
                 if (empty($chunk)) continue;
                 if (str_contains($chunk, 'https://dashboard.bref.sh')) continue;
                 IO::verbose($chunk);

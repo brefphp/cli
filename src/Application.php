@@ -4,9 +4,7 @@ namespace Bref\Cli;
 
 use Bref\Cli\Cli\IO;
 use Exception;
-use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpClient\Exception\ClientException;
 use Throwable;
@@ -23,13 +21,11 @@ class Application extends \Symfony\Component\Console\Application
         $this->add(new Commands\Connect);
     }
 
-    public function run(?InputInterface $input = null, ?OutputInterface $output = null): int
+    public function doRun(InputInterface $input, OutputInterface $output): int
     {
-        $input ??= new ArgvInput();
-        $output ??= new ConsoleOutput();
         IO::init($input, $output);
 
-        return parent::run($input, $output);
+        return parent::doRun($input, $output);
     }
 
     public function renderThrowable(Throwable $e, OutputInterface $output): void
