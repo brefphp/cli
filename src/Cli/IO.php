@@ -35,6 +35,15 @@ class IO
         // Store verbose logs in the temp directory
         $logsFilePath = sys_get_temp_dir() . '/bref.log';
         self::$logsFileResource = fopen($logsFilePath, 'wb');
+
+        VerboseModeEnabler::init($input);
+    }
+
+    public static function stop(): void
+    {
+        if (self::$logsFileResource) {
+            fclose(self::$logsFileResource);
+        }
     }
 
     /**
@@ -42,16 +51,6 @@ class IO
      * @param string|string[] $messages
      */
     public static function writeln(string|array $messages): void
-    {
-        self::safeWrite($messages);
-        self::writeToLogsFile($messages);
-    }
-
-    /**
-     * @deprecated
-     * @param string|string[] $messages
-     */
-    public static function log(string|array $messages): void
     {
         self::safeWrite($messages);
         self::writeToLogsFile($messages);
@@ -78,9 +77,7 @@ class IO
 
         self::$verboseMode = true;
         // Flush all previous verbose logs to the output
-        foreach (self::$verboseLogs as $message) {
-            self::doLogVerbose($message);
-        }
+        self::doLogVerbose(self::$verboseLogs);
     }
 
     /**
@@ -96,6 +93,8 @@ class IO
 
     public static function spin(string $message): void
     {
+        if (OutputInterface::VERBOSITY_QUIET === self::$output->getVerbosity()) return;
+
         if (! self::$spinner) {
             self::$spinner = new BrefSpinner(self::$output, $message);
         } else {
@@ -105,26 +104,25 @@ class IO
 
     public static function spinError(string $message = 'error'): void
     {
-        if (self::$spinner) {
-            self::$spinner->finish($message);
-            self::$spinner = null;
-        }
+        self::$spinner?->finish($message);
+        self::$spinner = null;
     }
 
     public static function spinSuccess(string $message): void
     {
-        if (self::$spinner) {
-            self::$spinner->finish($message);
-            self::$spinner = null;
-        }
+        self::$spinner?->finish($message);
+        self::$spinner = null;
     }
 
     public static function spinClear(): void
     {
-        if (self::$spinner) {
-            self::$spinner->stopAndClear();
-            self::$spinner = null;
-        }
+        self::$spinner?->stopAndClear();
+        self::$spinner = null;
+    }
+
+    public static function isVerbose(): bool
+    {
+        return self::$verboseMode;
     }
 
     /**
@@ -149,10 +147,13 @@ class IO
     private static function doLogVerbose(string|array $messages): void
     {
         $message = is_array($messages) ? implode(PHP_EOL, $messages) : $messages;
-        foreach (explode(PHP_EOL, $message) as $line) {
-            if (empty(trim($line))) continue;
-            self::safeWrite(Styles::gray('› ' . $line));
-        }
+
+        $messages = array_filter(array_map(function (string $line) {
+            if (empty(trim($line))) return '';
+            return Styles::gray('› ' . $line);
+        }, explode(PHP_EOL, $message)));
+
+        self::safeWrite($messages);
     }
 
     /**
@@ -162,19 +163,11 @@ class IO
     {
         if (OutputInterface::VERBOSITY_QUIET === self::$output->getVerbosity()) return;
 
-        // If the spinner is running
-        if (self::$spinner) {
-            // Clear the entire last line
-            self::$output->write("\x1b[2K");
-            // Move the cursor to the beginning of the line
-            self::$output->write("\x0D");
-            // Move up one line
-            self::$output->write("\x1b[1A");
-        }
+        self::$spinner?->clear();
 
         self::$output->writeln($messages);
 
         // Render the spinner again
-        self::$spinner?->render(clear: false);
+        self::$spinner?->render();
     }
 }

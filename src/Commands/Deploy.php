@@ -11,7 +11,6 @@ use Bref\Cli\Components\ServerlessFramework;
 use Bref\Cli\Config;
 use Bref\Cli\Helpers\Styles;
 use Exception;
-use Revolt\EventLoop;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -121,8 +120,6 @@ class Deploy extends Command
 
         IO::spinError('timeout');
         IO::writeln(['', Styles::gray('Deployment logs: ' . $deployment['url'])]);
-
-        EventLoop::run();
 
         throw new Exception('Deployment timed out after 10 minutes');
     }

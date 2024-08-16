@@ -4,6 +4,7 @@ namespace Bref\Cli;
 
 use Bref\Cli\Cli\IO;
 use Exception;
+use Revolt\EventLoop;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpClient\Exception\ClientException;
@@ -25,7 +26,14 @@ class Application extends \Symfony\Component\Console\Application
     {
         IO::init($input, $output);
 
-        return parent::doRun($input, $output);
+        $result = parent::doRun($input, $output);
+
+        IO::stop();
+
+        // Run the event loop until all tasks are done
+        EventLoop::run();
+
+        return $result;
     }
 
     public function renderThrowable(Throwable $e, OutputInterface $output): void

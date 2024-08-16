@@ -2,7 +2,9 @@
 
 namespace Bref\Cli\Helpers;
 
+use Bref\Cli\Cli\VerboseModeEnabler;
 use Revolt\EventLoop;
+use Symfony\Component\Console\Cursor;
 use Symfony\Component\Console\Exception\LogicException;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -41,14 +43,19 @@ class BrefSpinner
     private int $currentFrame = 0;
     private bool $started = true;
     private string $timerId;
+    private ?Cursor $cursor;
+    private int $interactiveLines = 0;
+    private string $previousMessage = '';
 
     public function __construct(private readonly OutputInterface $output, string $message)
     {
         $this->startTime = time();
         $this->message = $message;
+        $this->cursor = $this->output->isDecorated() ? new Cursor($output) : null;
 
-        // First render should not clear previous lines
-        $this->render(clear: false);
+        VerboseModeEnabler::start();
+
+        $this->render();
 
         $this->timerId = EventLoop::repeat(0.1, function () {
             $this->advance();
@@ -79,6 +86,8 @@ class BrefSpinner
     {
         if (! $this->started) throw new LogicException('Progress indicator has not yet been started.');
 
+        VerboseModeEnabler::stop();
+
         EventLoop::cancel($this->timerId);
 
         $this->currentFrame = 5;
@@ -88,49 +97,67 @@ class BrefSpinner
         $this->started = false;
     }
 
-    public function render(bool $clear = true): void
+    public function render(): void
     {
         if (OutputInterface::VERBOSITY_QUIET === $this->output->getVerbosity()) return;
         if (! $this->started) return;
 
-        $frames = array_map(fn (string $frame) => Styles::blue($frame), self::FRAMES);
+        // In non-interactive mode, only print the message if it changed
+        if (! $this->output->isDecorated() && $this->previousMessage === $this->message) {
+            return;
+        }
 
-        $frame = $frames[$this->currentFrame % count($frames)];
+        if ($this->output->isDecorated()) {
+            $frames = array_map(fn (string $frame) => Styles::blue($frame), self::FRAMES);
+            $frame = $frames[$this->currentFrame % count($frames)];
+        } else {
+            // Non-interactive mode
+            $frame = Styles::blue('⠷');
+        }
+
         $line = ' ' . $frame . ' ' . $this->message . Styles::gray(' › ' . $this->formatTime(time() - $this->startTime));
-        $this->overwrite($line, $clear);
+        $this->overwrite($line);
+
+        $this->previousMessage = $this->message;
     }
 
     public function stopAndClear(): void
     {
+        VerboseModeEnabler::stop();
         EventLoop::cancel($this->timerId);
         $this->clear();
     }
 
-    private function clear(): void
+    public function clear(): void
     {
-        if ($this->output->isDecorated()) {
-            // Clear the entire last line
-            $this->output->write("\x1b[2K");
-            // Move the cursor to the beginning of the line
-            $this->output->write("\x0D");
-            // Move up one line
-            $this->output->write("\x1b[1A");
+        $this->cursor?->moveToColumn(0);
+        for ($i = 0; $i < $this->interactiveLines; $i++) {
+            $this->cursor?->clearLine();
+            $this->cursor?->moveUp();
         }
+        $this->cursor?->clearLine();
+        $this->interactiveLines = 0;
     }
 
     /**
      * Overwrites a previous message to the output.
      */
-    private function overwrite(string $message, bool $clear): void
+    private function overwrite(string $message): void
     {
         if ($this->output->isDecorated()) {
-            if ($clear) {
-                $this->clear();
-            }
+            $this->clear();
 
             // Add an empty line of separation
             $this->output->writeln('');
-            $this->output->write($message);
+            $this->interactiveLines++;
+            $this->output->writeln($message);
+            $this->interactiveLines++;
+            if (VerboseModeEnabler::isRunning()) {
+                $this->output->writeln('');
+                $this->interactiveLines++;
+                // Do not finish on a new line
+                $this->output->write(Styles::gray('press [?] for verbose logs'));
+            }
         } else {
             $this->output->writeln($message);
         }
