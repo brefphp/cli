@@ -2,7 +2,9 @@
 
 namespace Bref\Cli\Commands;
 
+use Amp\ByteStream\BufferException;
 use Amp\Process\Process;
+use Amp\Process\ProcessException;
 use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
 use Bref\Cli\Components\ServerlessFramework;
@@ -49,15 +51,7 @@ class Deploy extends Command
         // ...
 
         // Retrieve the current git ref and commit message to serve as a label for the deployment
-        $gifRefProcess = Process::start('git rev-parse HEAD');
-        $gitMessageProcess = Process::start('git log -1 --pretty=%B');
-        // Await both processes
-        $gifRefProcess->join();
-        $gitMessageProcess->join();
-        $gitRef = buffer($gifRefProcess->getStdout());
-        $gitMessage = trim(buffer($gitMessageProcess->getStdout()));
-        // Keep only the 1st line
-        $gitMessage = explode("\n", $gitMessage)[0];
+        [$gitRef, $gitMessage] = $this->getGitDetails();
 
         $brefCloud = new BrefCloudClient;
         try {
@@ -147,5 +141,30 @@ class Deploy extends Command
             throw new Exception('No AWS account selected');
         }
         return $awsAccountName;
+    }
+
+    /**
+     * @return array{string, string}
+     * @throws BufferException
+     * @throws ProcessException
+     */
+    private function getGitDetails(): array
+    {
+        IO::verbose('Retrieving git ref and commit message');
+
+        $gifRefProcess = Process::start('git rev-parse HEAD');
+        $gitMessageProcess = Process::start('git log -1 --pretty=%B');
+        // Await both processes
+        $gifRefProcess->join();
+        $gitMessageProcess->join();
+        $gitRef = buffer($gifRefProcess->getStdout());
+        $gitMessage = trim(buffer($gitMessageProcess->getStdout()));
+        // Keep only the 1st line
+        $gitMessage = explode("\n", $gitMessage)[0];
+
+        IO::verbose('Git ref: ' . $gitRef);
+        IO::verbose('Git message: ' . $gitMessage);
+
+        return [$gitRef, $gitMessage];
     }
 }

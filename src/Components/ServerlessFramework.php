@@ -167,6 +167,11 @@ class ServerlessFramework
         ];
         // Merge the current environment with the AWS credentials
         $env = array_merge(getenv(), $env);
-        return Process::start(['npx', '--yes', '@bref.sh/serverless', $command, '--verbose', '--stage', $environment], environment: $env);
+
+        $processArgs = ['npx', '--yes', '@bref.sh/serverless', $command, '--verbose', '--stage', $environment];
+
+        IO::verbose('Running "' . implode(' ', $processArgs) . '"');
+
+        return Process::start($processArgs, environment: $env);
     }
 }
