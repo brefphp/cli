@@ -81,6 +81,7 @@ class BrefSpinner
 
         EventLoop::cancel($this->timerId);
 
+        $this->currentFrame = 5;
         $this->message = $message;
         $this->render();
         $this->output->writeln('');
