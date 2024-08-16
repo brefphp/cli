@@ -28,7 +28,7 @@ class VerboseModeEnabler
         if (IO::isVerbose()) return;
 
         async(function () {
-            if (! (self::$input instanceof StreamableInputInterface) || ! self::$input->isInteractive()) return;
+            if (! (self::$input instanceof StreamableInputInterface) || ! IO::isInteractive()) return;
             $resourceStream = self::$input->getStream() ?: STDIN;
             if (! is_resource($resourceStream)) return;
 

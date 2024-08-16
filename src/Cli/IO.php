@@ -28,7 +28,7 @@ class IO
 
         self::$verboseMode = $output->isVerbose();
         // We also want to enable verbose by default for non-interactive environments like CI
-        if (! $output->isDecorated()) {
+        if (! self::isInteractive()) {
             self::$verboseMode = true;
         }
 
@@ -123,6 +123,11 @@ class IO
     public static function isVerbose(): bool
     {
         return self::$verboseMode;
+    }
+
+    public static function isInteractive(): bool
+    {
+        return self::$input->isInteractive() && self::$output->isDecorated();
     }
 
     /**

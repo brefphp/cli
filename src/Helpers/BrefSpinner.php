@@ -2,6 +2,7 @@
 
 namespace Bref\Cli\Helpers;
 
+use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\VerboseModeEnabler;
 use Revolt\EventLoop;
 use Symfony\Component\Console\Cursor;
@@ -51,7 +52,7 @@ class BrefSpinner
     {
         $this->startTime = time();
         $this->message = $message;
-        $this->cursor = $this->output->isDecorated() ? new Cursor($output) : null;
+        $this->cursor = IO::isInteractive() ? new Cursor($output) : null;
 
         VerboseModeEnabler::start();
 
@@ -72,7 +73,7 @@ class BrefSpinner
     public function advance(): void
     {
         if (! $this->started) return;
-        if (! $this->output->isDecorated()) return;
+        if (! IO::isInteractive()) return;
 
         ++$this->currentFrame;
 
@@ -103,11 +104,11 @@ class BrefSpinner
         if (! $this->started) return;
 
         // In non-interactive mode, only print the message if it changed
-        if (! $this->output->isDecorated() && $this->previousMessage === $this->message) {
+        if ($this->previousMessage === $this->message && ! IO::isInteractive()) {
             return;
         }
 
-        if ($this->output->isDecorated()) {
+        if (IO::isInteractive()) {
             $frames = array_map(fn (string $frame) => Styles::blue($frame), self::FRAMES);
             $frame = $frames[$this->currentFrame % count($frames)];
         } else {
@@ -144,7 +145,7 @@ class BrefSpinner
      */
     private function overwrite(string $message): void
     {
-        if ($this->output->isDecorated()) {
+        if (IO::isInteractive()) {
             $this->clear();
 
             // Add an empty line of separation
