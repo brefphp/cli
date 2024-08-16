@@ -34,7 +34,6 @@ class IO
 
         // Store verbose logs in the temp directory
         $logsFilePath = sys_get_temp_dir() . '/bref.log';
-        var_dump($logsFilePath);
         self::$logsFileResource = fopen($logsFilePath, 'wb');
     }
 
