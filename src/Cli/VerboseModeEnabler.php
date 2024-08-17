@@ -27,10 +27,19 @@ class VerboseModeEnabler
 
         if (IO::isVerbose()) return;
 
+        // Set this before starting the async function, else the cancellation might have
+        // been requested before the async function starts
+        self::$verboseWatchCancellation = new DeferredCancellation;
+
         async(function () {
             if (! (self::$input instanceof StreamableInputInterface) || ! IO::isInteractive()) return;
             $resourceStream = self::$input->getStream() ?: STDIN;
             if (! is_resource($resourceStream)) return;
+
+            // Safety in case things were stopped before the async function started
+            if (! self::$verboseWatchCancellation) return;
+            $cancellation = self::$verboseWatchCancellation->getCancellation();
+            $cancellation->throwIfRequested();
 
             // Some of the techniques used here are inspired from the Symfony Console component
             // See \Symfony\Component\Console\Helper\QuestionHelper::autocomplete()
@@ -39,10 +48,6 @@ class VerboseModeEnabler
             $previousSttyMode = self::getSttyMode();
             if ($previousSttyMode === false) return;
             self::disableSttyIcanonMode();
-
-            self::$verboseWatchCancellation = new DeferredCancellation;
-            $cancellation = self::$verboseWatchCancellation->getCancellation();
-            $cancellation->throwIfRequested();
             $cancellation->subscribe(function () use ($previousSttyMode) {
                 // Reset stty so it behaves normally again
                 self::setSttyMode($previousSttyMode);
@@ -53,6 +58,9 @@ class VerboseModeEnabler
                 if (str_contains($chunk, '?')) {
                     IO::enableVerbose();
                     self::$verboseWatchCancellation = null;
+                    break;
+                }
+                if ($cancellation->isRequested()) {
                     break;
                 }
             }
