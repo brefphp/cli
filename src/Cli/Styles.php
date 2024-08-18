@@ -1,8 +1,7 @@
 <?php declare(strict_types=1);
 
-namespace Bref\Cli\Helpers;
+namespace Bref\Cli\Cli;
 
-use Laravel\Prompts\Prompt;
 use Symfony\Component\Console\Formatter\OutputFormatterStyle;
 
 class Styles

@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-namespace Bref\Cli\Helpers;
+namespace Bref\Cli\Cli;
 
-use Bref\Cli\Cli\IO;
-use Bref\Cli\Cli\VerboseModeEnabler;
 use Revolt\EventLoop;
 use Symfony\Component\Console\Cursor;
 use Symfony\Component\Console\Exception\LogicException;

@@ -4,8 +4,8 @@ namespace Bref\Cli\Commands;
 
 use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
+use Bref\Cli\Cli\Styles;
 use Bref\Cli\Token;
-use Bref\Cli\Helpers\Styles;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;

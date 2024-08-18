@@ -2,8 +2,6 @@
 
 namespace Bref\Cli\Cli;
 
-use Bref\Cli\Helpers\BrefSpinner;
-use Bref\Cli\Helpers\Styles;
 use Symfony\Component\Console\Exception\RuntimeException;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
