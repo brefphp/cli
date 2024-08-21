@@ -40,13 +40,11 @@ class Deploy extends Command
         $appName = $config['name'];
 
         IO::writeln([
-            sprintf("Deploying %s to environment %s", Styles::bold('demo'), Styles::bold($environment)),
-//            '',
+            sprintf("Deploying %s to environment %s", Styles::bold($appName), Styles::bold($environment)),
+            '',
         ]);
 
         IO::spin('deploying');
-
-        delay(3);
 
         // Upload artifacts
         // ...
@@ -85,7 +83,7 @@ class Deploy extends Command
         $deploymentId = $deployment['deploymentId'];
         $credentials = $deployment['credentials'] ?? null;
 
-//        IO::writeln("<href={$deployment['url']}>" . Styles::gray($deployment['url']) . '</>');
+        IO::writeln("<href={$deployment['url']}>" . Styles::gray($deployment['url']) . '</>');
 
         if ($config['type'] === 'serverless-framework') {
             if ($credentials === null) {
