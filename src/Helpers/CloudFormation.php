@@ -6,6 +6,7 @@ use Aws\CloudFormation\CloudFormationClient;
 use Aws\CloudFormation\Exception\CloudFormationException;
 use Bref\Cli\Cli\IO;
 use Exception;
+use InvalidArgumentException;
 
 /**
  * @phpstan-type ResourceStatus "CREATE_COMPLETE"|"CREATE_IN_PROGRESS"|"CREATE_FAILED"|"DELETE_COMPLETE"|"DELETE_FAILED"|"DELETE_IN_PROGRESS"|"ROLLBACK_COMPLETE"|"ROLLBACK_FAILED"|"ROLLBACK_IN_PROGRESS"|"UPDATE_COMPLETE"|"UPDATE_COMPLETE_CLEANUP_IN_PROGRESS"|"UPDATE_IN_PROGRESS"|"UPDATE_ROLLBACK_COMPLETE"|"UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS"|"UPDATE_ROLLBACK_FAILED"|"UPDATE_ROLLBACK_IN_PROGRESS"
@@ -24,7 +25,7 @@ class CloudFormation
      * @return bool Has deployed changes.
      * @throws Exception
      */
-    public function deploy(string $stackName, string $templateUrl, array $parameters = []): bool
+    public function deploy(string $stackName, ?string $templateUrl = null, ?string $templateBody = null, array $parameters = []): bool
     {
         // If the CloudFormation stack already exists, update it, else create it
         $operation = fn(...$params) => $this->cloudFormation->updateStack(...$params);
@@ -45,10 +46,12 @@ class CloudFormation
             }
         }
 
+        $template = $this->template($templateUrl, $templateBody);
+
         try {
             $operation([
                 'StackName' => $stackName,
-                'TemplateURL' => $templateUrl,
+                ...$template,
                 'Capabilities' => ['CAPABILITY_NAMED_IAM'],
                 'Parameters' => array_map(function ($key, $value) {
                     return [
@@ -67,7 +70,7 @@ class CloudFormation
                 IO::verbose("The CloudFormation stack $stackName is in ROLLBACK_COMPLETE state and cannot be updated. Deleting the stack.");
                 $this->delete($stackName);
                 IO::verbose('The stack has been deleted. Retrying the deployment.');
-                return $this->deploy($stackName, $templateUrl, $parameters);
+                return $this->deploy($stackName, templateUrl: $templateUrl, parameters: $parameters);
             }
             throw $e;
         }
@@ -198,4 +201,21 @@ class CloudFormation
         }
         return $result;
     }
+
+    /**
+     * @return array{TemplateURL: string}|array{TemplateBody: string}
+     */
+    private function template(?string $templateUrl, ?string $templateBody): array
+    {
+        if ($templateUrl) {
+            return ['TemplateURL' => $templateUrl];
+        }
+
+        if ($templateBody) {
+            return ['TemplateBody' => $templateBody];
+        }
+
+        throw new InvalidArgumentException('You must provide either a template URL or a template body');
+    }
+
 }

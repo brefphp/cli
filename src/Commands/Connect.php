@@ -114,8 +114,8 @@ class Connect extends Command
         $cloudFormation = new CloudFormation($cloudFormationClient);
         $cloudFormation->deploy(
             $details['stack_name'],
-            $details['template_url'],
-            $stackParameters,
+            templateUrl: $details['template_url'],
+            parameters: $stackParameters,
         );
 
         if (!$isConnected && $accountName) {
