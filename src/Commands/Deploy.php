@@ -125,16 +125,15 @@ class Deploy extends Command
     }
 
     /**
-     * @param string[] $selectAwsAccount
+     * @param array{ name: string }[] $selectAwsAccount
      * @throws Exception
      */
     private function selectAwsAccount(array $selectAwsAccount): string
     {
         $awsAccountName = IO::ask(new ChoiceQuestion(
             'Please select the AWS account to deploy to:',
-            $selectAwsAccount,
+            array_map(fn($account) => $account['name'], $selectAwsAccount),
         ));
-
         if (! is_string($awsAccountName)) {
             throw new Exception('No AWS account selected');
         }
