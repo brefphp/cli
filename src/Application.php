@@ -44,6 +44,13 @@ class Application extends \Symfony\Component\Console\Application
                 $body = $e->getResponse()->toArray(false);
                 $message = $body['message'] ?? 'Unknown Bref Cloud error';
                 $statusCode = $e->getResponse()->getStatusCode();
+
+                $message = match ($statusCode) {
+                    401 => 'Unauthenticated. Please log in with `bref login`.',
+                    403 => 'Forbidden. You do not have the required permissions. Do you need to login to a different team?',
+                    default => $message,
+                };
+
                 $e = new Exception("[$statusCode] $message", $statusCode);
             } catch (Throwable) {
             }
