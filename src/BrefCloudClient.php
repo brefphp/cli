@@ -51,7 +51,7 @@ class BrefCloudClient
      */
     public function getUserInfo(): array
     {
-        return $this->client->request('GET', '/api/user')->toArray();
+        return $this->client->request('GET', '/api/v1/user')->toArray();
     }
 
     /**
@@ -83,7 +83,7 @@ class BrefCloudClient
         if ($awsAccountName) {
             $body['aws_account_name'] = $awsAccountName;
         }
-        return $this->client->request('POST', '/api/deployments', [
+        return $this->client->request('POST', '/api/v1/deployments', [
             'json' => $body,
         ])->toArray();
     }
@@ -96,7 +96,7 @@ class BrefCloudClient
      */
     public function getDeployment(int $deploymentId): array
     {
-        return $this->client->request('GET', "/api/deployments/$deploymentId")->toArray();
+        return $this->client->request('GET', "/api/v1/deployments/$deploymentId")->toArray();
     }
 
     public function markDeploymentFinished(
@@ -121,7 +121,7 @@ class BrefCloudClient
         if ($outputs) {
             $body['outputs'] = $outputs;
         }
-        $this->client->request('POST', "/api/deployments/$deploymentId/finished", [
+        $this->client->request('POST', "/api/v1/deployments/$deploymentId/finished", [
             'json' => $body,
         ]);
     }
@@ -134,7 +134,7 @@ class BrefCloudClient
      */
     public function startCommand(string $appName, string $environment, string $command): array
     {
-        return $this->client->request('POST', '/api/commands', [
+        return $this->client->request('POST', '/api/v1/commands', [
             'json' => [
                 'appName' => $appName,
                 'environmentName' => $environment,
@@ -151,7 +151,7 @@ class BrefCloudClient
      */
     public function listAwsAccounts(): array
     {
-        return $this->client->request('GET', '/api/aws-accounts')->toArray();
+        return $this->client->request('GET', '/api/v1/aws-accounts')->toArray();
     }
 
     /**
@@ -162,7 +162,7 @@ class BrefCloudClient
      */
     public function listTeams(): array
     {
-        return $this->client->request('GET', '/api/teams')->toArray();
+        return $this->client->request('GET', '/api/v1/teams')->toArray();
     }
 
     /**
@@ -180,12 +180,12 @@ class BrefCloudClient
      */
     public function prepareConnectAwsAccount(int $teamId): array
     {
-        return $this->client->request('GET', '/api/aws-accounts/connect?team_id=' . $teamId)->toArray();
+        return $this->client->request('GET', '/api/v1/aws-accounts/connect?team_id=' . $teamId)->toArray();
     }
 
     public function addAwsAccount(mixed $teamId, string $accountName, string $roleArn): void
     {
-        $this->client->request('POST', '/api/aws-accounts', [
+        $this->client->request('POST', '/api/v1/aws-accounts', [
             'json' => [
                 'team_id' => $teamId,
                 'name' => $accountName,
