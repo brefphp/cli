@@ -49,7 +49,7 @@ class Config
             if ($fileContent === false) {
                 throw new Exception("Cannot read file $fileName");
             }
-            $yamlContent = Yaml::parse($fileContent);
+            $yamlContent = Yaml::parse($fileContent, Yaml::PARSE_CUSTOM_TAGS);
             if (! is_array($yamlContent) || empty($yamlContent)) {
                 throw new Exception("invalid YAML content");
             }
