@@ -32,7 +32,7 @@ class Config
             ];
         }
 
-        throw new Exception('TODO: read bref.php config');
+        throw new Exception('No "serverless.yml" file found in the current directory');
     }
 
     /**
