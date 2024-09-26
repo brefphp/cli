@@ -24,7 +24,7 @@ class CloudFormation
      * @return bool Has deployed changes.
      * @throws Exception
      */
-    public function deploy(string $stackName, string $templateUrl = null, array $parameters = []): bool
+    public function deploy(string $stackName, string $templateUrl, array $parameters = []): bool
     {
         // If the CloudFormation stack already exists, update it, else create it
         $operation = fn(...$params) => $this->cloudFormation->updateStack(...$params);
