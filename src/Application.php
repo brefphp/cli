@@ -2,6 +2,7 @@
 
 namespace Bref\Cli;
 
+use Aws\Exception\CredentialsException;
 use Bref\Cli\Cli\IO;
 use Exception;
 use Revolt\EventLoop;
@@ -56,6 +57,22 @@ class Application extends \Symfony\Component\Console\Application
             }
         }
 
+        // Prettify AWS credentials errors
+        if ($e instanceof CredentialsException && str_contains($e->getMessage(), 'not found in credentials file')) {
+            $this->renderUserError('AWS profile not found: ' . $e->getMessage(), $output);
+            return;
+        }
+
         parent::renderThrowable($e, $output);
+    }
+
+    private function renderUserError(string $message, OutputInterface $output): void
+    {
+        $output->writeln([
+            '',
+            '<error>  ' . str_repeat(' ', strlen($message)) . '  </error>',
+            '<error>  ' . $message . '  </error>',
+            '<error>  ' . str_repeat(' ', strlen($message)) . '  </error>',
+        ]);
     }
 }
