@@ -6,6 +6,7 @@ use Aws\CloudFormation\CloudFormationClient;
 use Aws\CloudFormation\Exception\CloudFormationException;
 use Bref\Cli\Cli\IO;
 use Exception;
+use function Amp\delay;
 
 /**
  * @phpstan-type ResourceStatus "CREATE_COMPLETE"|"CREATE_IN_PROGRESS"|"CREATE_FAILED"|"DELETE_COMPLETE"|"DELETE_FAILED"|"DELETE_IN_PROGRESS"|"ROLLBACK_COMPLETE"|"ROLLBACK_FAILED"|"ROLLBACK_IN_PROGRESS"|"UPDATE_COMPLETE"|"UPDATE_COMPLETE_CLEANUP_IN_PROGRESS"|"UPDATE_IN_PROGRESS"|"UPDATE_ROLLBACK_COMPLETE"|"UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS"|"UPDATE_ROLLBACK_FAILED"|"UPDATE_ROLLBACK_IN_PROGRESS"
@@ -28,7 +29,6 @@ class CloudFormation
     {
         // If the CloudFormation stack already exists, update it, else create it
         $operation = fn(...$params) => $this->cloudFormation->updateStack(...$params);
-        $waiter = 'StackUpdateComplete';
         try {
             $this->cloudFormation->describeStacks([
                 'StackName' => $stackName,
@@ -38,7 +38,6 @@ class CloudFormation
             if ($e->getAwsErrorCode() === 'ValidationError' && str_contains(($e->getAwsErrorMessage() ?: $e->getMessage()), 'does not exist')) {
                 // This is not an error, it just means that the stack does not exist yet
                 $operation = fn(...$params) => $this->cloudFormation->createStack(...$params);
-                $waiter = 'StackCreateComplete';
                 IO::verbose("Creating CloudFormation stack $stackName");
             } else {
                 throw $e;
@@ -74,28 +73,36 @@ class CloudFormation
 
         IO::verbose("Waiting for CloudFormation stack $stackName to be deployed");
 
-        try {
-            $this->cloudFormation->waitUntil($waiter, [
-                'StackName' => $stackName,
-                '@waiter' => [
-                    // Check every 1 second
-                    'delay' => 1,
-                    // Wait up to 10 minutes
-                    'maxAttempts' => 600,
-                ],
-            ]);
-        } catch (Exception $e) {
-            $detailedError = null;
-            try {
-                $detailedError = $this->retrieveDetailedDeployError($stackName);
-            } catch (Exception $subError) {
-                // Ignore
-                IO::verbose('Failed to retrieve details about the deployment error' . $subError->getMessage());
-            }
-            throw $detailedError ? new Exception($detailedError) : $e;
-        }
+        $waitStarted = time();
+        $timeout = 600; // 10 minutes
 
-        return true;
+        while ((time() - $waitStarted) < $timeout) {
+            delay(1);
+
+            $stack = $this->cloudFormation->describeStacks([
+                'StackName' => $stackName,
+            ])->toArray();
+
+            $status = $stack['Stacks'][0]['StackStatus'];
+            if ($status === 'CREATE_COMPLETE' || $status === 'UPDATE_COMPLETE') {
+                return true;
+            }
+
+            if (! str_contains($status, '_IN_PROGRESS')) {
+                // Finished with an error
+                try {
+                    $detailedError = $this->retrieveDetailedDeployError($stackName);
+                } catch (Exception $subError) {
+                    // Ignore
+                    IO::verbose('Failed to retrieve details about the deployment error' . $subError->getMessage());
+                }
+                if (isset($detailedError)) {
+                    throw new Exception($detailedError);
+                }
+                throw new Exception("The CloudFormation stack $stackName failed to deploy with status $status");
+            }
+        }
+        throw new Exception("Timeout after waiting 10 minutes for the CloudFormation stack ($stackName) to deploy");
     }
 
     public function delete(string $stackName): void
