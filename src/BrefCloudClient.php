@@ -99,6 +99,15 @@ class BrefCloudClient
         return $this->client->request('GET', "/api/v1/deployments/$deploymentId")->toArray();
     }
 
+    public function pushDeploymentLogs(int $deploymentId, string $newLogs): void
+    {
+        $this->client->request('POST', "/api/v1/deployments/$deploymentId/logs", [
+            'json' => [
+                'logs' => $newLogs,
+            ],
+        ]);
+    }
+
     public function markDeploymentFinished(
         int $deploymentId,
         bool $success,

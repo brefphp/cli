@@ -7,6 +7,7 @@ use Amp\Process\ProcessException;
 use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
 use Exception;
+use Revolt\EventLoop;
 use Symfony\Component\Yaml\Yaml;
 use function Amp\async;
 use function Amp\ByteStream\buffer;
@@ -20,38 +21,48 @@ class ServerlessFramework
     public function deploy(int $deploymentId, string $environment, array $awsCredentials, BrefCloudClient $brefCloud): void
     {
         $process = $this->serverlessExec('deploy', $environment, $awsCredentials);
-        $logs = '';
-        async(function () use ($process, &$logs) {
+        $newLogs = '';
+        async(function () use ($process, &$newLogs) {
             while (($chunk = $process->getStdout()->read()) !== null) {
                 if (empty($chunk)) continue;
                 IO::verbose($chunk);
-                $logs .= $chunk;
+                $newLogs .= $chunk;
             }
         });
-        async(function () use ($process, &$logs) {
+        async(function () use ($process, &$newLogs) {
             while (($chunk = $process->getStderr()->read()) !== null) {
                 if (empty($chunk)) continue;
                 if (str_contains($chunk, 'https://dashboard.bref.sh')) continue;
                 IO::verbose($chunk);
-                $logs .= $chunk;
+                $newLogs .= $chunk;
             }
         });
+        // Send logs to Bref Cloud every x seconds
+        $logPusherTimer = EventLoop::repeat(3, function () use ($brefCloud, $deploymentId, &$newLogs) {
+            if ($newLogs === '') {
+                return;
+            }
+            $brefCloud->pushDeploymentLogs($deploymentId, $newLogs);
+            $newLogs = '';
+        });
         $exitCode = $process->join();
+        EventLoop::cancel($logPusherTimer);
+
         if ($exitCode > 0) {
-            $logs .= "Error while running 'serverless deploy', deployment failed\n";
+            $newLogs .= "Error while running 'serverless deploy', deployment failed\n";
             IO::writeln("Error while running 'serverless deploy', deployment failed");
-            $brefCloud->markDeploymentFinished($deploymentId, false, $logs);
+            $brefCloud->markDeploymentFinished($deploymentId, false, $newLogs);
             return;
         }
 
-        $hasChanges = ! str_contains($logs, 'No changes to deploy. Deployment skipped.');
+        $hasChanges = ! str_contains($newLogs, 'No changes to deploy. Deployment skipped.');
         if ($hasChanges) {
             try {
                 $outputs = $this->retrieveOutputs($environment, $awsCredentials);
             } catch (Exception $e) {
-                $logs .= $e->getMessage();
-                $logs .= $e->getTraceAsString();
-                $brefCloud->markDeploymentFinished($deploymentId, false, $logs);
+                $newLogs .= $e->getMessage();
+                $newLogs .= $e->getTraceAsString();
+                $brefCloud->markDeploymentFinished($deploymentId, false, $newLogs);
                 return;
             }
 
@@ -59,9 +70,9 @@ class ServerlessFramework
             $stackName = $outputs['stack'];
             unset($outputs['stack'], $outputs['region']);
 
-            $brefCloud->markDeploymentFinished($deploymentId, true, $logs, $region, $stackName, $outputs);
+            $brefCloud->markDeploymentFinished($deploymentId, true, $newLogs, $region, $stackName, $outputs);
         } else {
-            $brefCloud->markDeploymentFinished($deploymentId, true, $logs);
+            $brefCloud->markDeploymentFinished($deploymentId, true, $newLogs);
         }
     }
 
