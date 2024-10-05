@@ -127,6 +127,9 @@ class ServerlessFramework
             if ($url && str_starts_with($url, 'ANY - ')) {
                 $url = substr($url, strlen('ANY - '));
             }
+            if (!$url && isset($deployOutputs['endpoints']) && is_array($deployOutputs['endpoints'])) {
+                $url = reset($deployOutputs['endpoints']);
+            }
             // Special case for the `server-side-website` construct
             if (isset($deployOutputs['website']['url']) && is_string($deployOutputs['website']['url'])) {
                 $url = $deployOutputs['website']['url'];
