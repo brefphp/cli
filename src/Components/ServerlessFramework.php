@@ -128,7 +128,7 @@ class ServerlessFramework
             if (! isset($deployOutputs['Stack Outputs']) || ! is_array($deployOutputs['Stack Outputs'])) {
                 throw new Exception('Missing stack outputs in the "serverless info" output');
             }
-            $cfOutputs = $deployOutputs['Stack Outputs'];
+            $cfOutputs = $this->cleanupCfOutputs($deployOutputs['Stack Outputs']);
             return array_merge([
                 'stack' => $deployOutputs['stack'],
                 'region' => $deployOutputs['region'],
@@ -149,6 +149,7 @@ class ServerlessFramework
                     if (! is_array($stackOutputs)) {
                         throw new Exception('Invalid stack outputs in the "serverless info" output');
                     }
+                    $stackOutputs = $this->cleanupCfOutputs($stackOutputs);
                     $stackName = $matches[2];
                     if (! is_string($stackName)) {
                         throw new Exception('Invalid stack name in the "serverless info" output');
@@ -191,5 +192,19 @@ class ServerlessFramework
         IO::verbose('Running "' . implode(' ', $processArgs) . '"');
 
         return Process::start($processArgs, environment: $env);
+    }
+
+    /**
+     * @param array<string, string> $outputs
+     * @return array<string, string>
+     */
+    private function cleanupCfOutputs(array $outputs): array
+    {
+        return array_filter($outputs, function (string $name): bool {
+            if ($name === 'ServerlessDeploymentBucketName') return false;
+            if ($name === 'HttpApiId') return false;
+            if (str_contains($name, 'LambdaFunctionQualifiedArn')) return false;
+            return true;
+        }, ARRAY_FILTER_USE_KEY);
     }
 }
