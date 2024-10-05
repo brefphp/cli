@@ -8,6 +8,7 @@ use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
 use Exception;
 use Revolt\EventLoop;
+use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Yaml\Yaml;
 use function Amp\async;
 use function Amp\ByteStream\buffer;
@@ -18,9 +19,14 @@ class ServerlessFramework
      * @param array{ accessKeyId: string, secretAccessKey: string, sessionToken: string } $awsCredentials
      * @throws ProcessException
      */
-    public function deploy(int $deploymentId, string $environment, array $awsCredentials, BrefCloudClient $brefCloud): void
+    public function deploy(int $deploymentId, string $environment, array $awsCredentials, BrefCloudClient $brefCloud, InputInterface $input): void
     {
-        $process = $this->serverlessExec('deploy', $environment, $awsCredentials);
+        $options = [];
+        if ($input->hasOption('force')) {
+            $options[] = '--force';
+        }
+
+        $process = $this->serverlessExec('deploy', $environment, $awsCredentials, $options);
         $newLogs = '';
         async(function () use ($process, &$newLogs) {
             while (($chunk = $process->getStdout()->read()) !== null) {
@@ -83,7 +89,7 @@ class ServerlessFramework
      */
     private function retrieveOutputs(string $environment, array $awsCredentials): array
     {
-        $process = $this->serverlessExec('info', $environment, $awsCredentials);
+        $process = $this->serverlessExec('info', $environment, $awsCredentials, []);
         $process->join();
         $infoOutput = buffer($process->getStdout());
         // Remove non-ASCII characters
@@ -166,9 +172,10 @@ class ServerlessFramework
 
     /**
      * @param array{ accessKeyId: string, secretAccessKey: string, sessionToken: string } $awsCredentials
+     * @param list<string> $options
      * @throws ProcessException
      */
-    private function serverlessExec(string $command, string $environment, array $awsCredentials): Process
+    private function serverlessExec(string $command, string $environment, array $awsCredentials, array $options): Process
     {
         $env = [
             'SLS_DISABLE_AUTO_UPDATE' => '1',
@@ -179,7 +186,7 @@ class ServerlessFramework
         // Merge the current environment with the AWS credentials
         $env = array_merge(getenv(), $env);
 
-        $processArgs = ['npx', '--yes', '@bref.sh/serverless', $command, '--verbose', '--stage', $environment];
+        $processArgs = ['npx', '--yes', '@bref.sh/serverless', $command, '--verbose', '--stage', $environment, ...$options];
 
         IO::verbose('Running "' . implode(' ', $processArgs) . '"');
 

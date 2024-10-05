@@ -27,7 +27,8 @@ class Deploy extends Command
         $this
             ->setName('deploy')
             ->setDescription('Deploy the application')
-            ->addOption('env', 'e', InputOption::VALUE_REQUIRED, 'The environment to deploy to', 'dev');
+            ->addOption('env', 'e', InputOption::VALUE_REQUIRED, 'The environment to deploy to', 'dev')
+            ->addOption('force', null, InputOption::VALUE_NONE, 'Force the deployment');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -92,7 +93,7 @@ class Deploy extends Command
             }
 
             $component = new ServerlessFramework();
-            $component->deploy($deploymentId, $environment, $credentials, $brefCloud);
+            $component->deploy($deploymentId, $environment, $credentials, $brefCloud, $input);
         }
 
         $startTime = time();
