@@ -10,6 +10,7 @@ use Exception;
 use Revolt\EventLoop;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Yaml\Yaml;
+use Throwable;
 use function Amp\async;
 use function Amp\ByteStream\buffer;
 
@@ -26,59 +27,64 @@ class ServerlessFramework
             $options[] = '--force';
         }
 
-        $process = $this->serverlessExec('deploy', $environment, $awsCredentials, $options);
         $newLogs = '';
-        async(function () use ($process, &$newLogs) {
-            while (($chunk = $process->getStdout()->read()) !== null) {
-                if (empty($chunk)) continue;
-                IO::verbose($chunk);
-                $newLogs .= $chunk;
-            }
-        });
-        async(function () use ($process, &$newLogs) {
-            while (($chunk = $process->getStderr()->read()) !== null) {
-                if (empty($chunk)) continue;
-                if (str_contains($chunk, 'https://dashboard.bref.sh')) continue;
-                IO::verbose($chunk);
-                $newLogs .= $chunk;
-            }
-        });
-        // Send logs to Bref Cloud every x seconds
-        $logPusherTimer = EventLoop::repeat(3, function () use ($brefCloud, $deploymentId, &$newLogs) {
-            if ($newLogs === '') {
-                return;
-            }
-            $brefCloud->pushDeploymentLogs($deploymentId, $newLogs);
-            $newLogs = '';
-        });
-        $exitCode = $process->join();
-        EventLoop::cancel($logPusherTimer);
 
-        if ($exitCode > 0) {
-            $newLogs .= "Error while running 'serverless deploy', deployment failed\n";
-            IO::writeln("Error while running 'serverless deploy', deployment failed");
-            $brefCloud->markDeploymentFinished($deploymentId, false, $newLogs);
-            return;
-        }
+        try {
 
-        $hasChanges = ! str_contains($newLogs, 'No changes to deploy. Deployment skipped.');
-        if ($hasChanges) {
-            try {
-                $outputs = $this->retrieveOutputs($environment, $awsCredentials);
-            } catch (Exception $e) {
-                $newLogs .= $e->getMessage();
-                $newLogs .= $e->getTraceAsString();
+            $process = $this->serverlessExec('deploy', $environment, $awsCredentials, $options);
+            async(function () use ($process, &$newLogs) {
+                while (($chunk = $process->getStdout()->read()) !== null) {
+                    if (empty($chunk)) continue;
+                    IO::verbose($chunk);
+                    $newLogs .= $chunk;
+                }
+            });
+            async(function () use ($process, &$newLogs) {
+                while (($chunk = $process->getStderr()->read()) !== null) {
+                    if (empty($chunk)) continue;
+                    if (str_contains($chunk, 'https://dashboard.bref.sh')) continue;
+                    IO::verbose($chunk);
+                    $newLogs .= $chunk;
+                }
+            });
+            // Send logs to Bref Cloud every x seconds
+            $logPusherTimer = EventLoop::repeat(3, function () use ($brefCloud, $deploymentId, &$newLogs) {
+                if ($newLogs === '') {
+                    return;
+                }
+                $brefCloud->pushDeploymentLogs($deploymentId, $newLogs);
+                $newLogs = '';
+            });
+            $exitCode = $process->join();
+            EventLoop::cancel($logPusherTimer);
+
+            if ($exitCode > 0) {
+                $newLogs .= "Error while running 'serverless deploy', deployment failed\n";
+                IO::writeln("Error while running 'serverless deploy', deployment failed");
                 $brefCloud->markDeploymentFinished($deploymentId, false, $newLogs);
                 return;
             }
 
-            $region = $outputs['region'];
-            $stackName = $outputs['stack'];
-            unset($outputs['stack'], $outputs['region']);
+            $hasChanges = ! str_contains($newLogs, 'No changes to deploy. Deployment skipped.');
+            if ($hasChanges) {
+                $outputs = $this->retrieveOutputs($environment, $awsCredentials);
 
-            $brefCloud->markDeploymentFinished($deploymentId, true, $newLogs, $region, $stackName, $outputs);
-        } else {
-            $brefCloud->markDeploymentFinished($deploymentId, true, $newLogs);
+                $region = $outputs['region'];
+                $stackName = $outputs['stack'];
+                unset($outputs['stack'], $outputs['region']);
+
+                $brefCloud->markDeploymentFinished($deploymentId, true, $newLogs, $region, $stackName, $outputs);
+            } else {
+                $brefCloud->markDeploymentFinished($deploymentId, true, $newLogs);
+            }
+
+        } catch (Throwable $e) {
+            // We don't want the CLI to fail and the deployment to stay in "deploying" status in Cloud
+            $newLogs .= 'Uncaught error: ' . $e->getMessage();
+            $newLogs .= $e->getTraceAsString();
+            $brefCloud->markDeploymentFinished($deploymentId, false, $newLogs);
+
+            throw $e;
         }
     }
 
