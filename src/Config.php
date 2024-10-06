@@ -8,26 +8,26 @@ use Symfony\Component\Yaml\Yaml;
 class Config
 {
     /**
-     * @return array{name: string, org: string, type: string}
+     * @return array{name: string, team: string, type: string}
      * @throws Exception
      */
     public static function loadConfig(): array
     {
         if (is_file('serverless.yml')) {
             $serverlessConfig = self::readYamlFile('serverless.yml');
-            if (empty($serverlessConfig['service']) || str_contains((string) $serverlessConfig['service'], '$')) {
+            if (empty($serverlessConfig['service']) || ! is_string($serverlessConfig['service']) || str_contains($serverlessConfig['service'], '$')) {
                 throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
             }
-            $org = (string) ($serverlessConfig['custom']['brefOrg'] ?? '');
-            if (empty($org)) {
-                throw new Exception('To deploy a Serverless Framework project with Bref Cloud you must set the organization name in the "custom.brefOrg" field in "serverless.yml"');
+            $team = (string) ($serverlessConfig['bref']['team'] ?? $serverlessConfig['custom']['bref']['team'] ?? '');
+            if (empty($team)) {
+                throw new Exception('To deploy a Serverless Framework project with Bref Cloud you must set the team name in the "bref.team" field in "serverless.yml"');
             }
-            if (str_contains($serverlessConfig['custom']['brefOrg'], '$')) {
+            if (str_contains($team, '$')) {
                 throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
             }
             return [
-                'name' => (string) $serverlessConfig['service'],
-                'org' => $org,
+                'name' => $serverlessConfig['service'],
+                'team' => $team,
                 'type' => 'serverless-framework',
             ];
         }
