@@ -38,6 +38,8 @@ class Connect extends Command
         /** @var string $awsProfile */
         $awsProfile = $input->getOption('profile');
 
+        putenv('AWS_PROFILE=' . $awsProfile);
+
         $accountId = $this->getCurrentAwsAccountId($awsProfile);
         // TODO verbose only
         IO::writeln('Current AWS account ID: ' . $accountId);
@@ -100,7 +102,6 @@ class Connect extends Command
         IO::spin('connecting');
 
         $cloudFormationClient = new CloudFormationClient([
-            'profile' => $awsProfile,
             'region' => $details['region'],
         ]);
         IO::verbose(['Deploying CloudFormation stack']);
@@ -139,13 +140,11 @@ class Connect extends Command
     private function getCurrentAwsAccountId(string $profile): string
     {
         $sts = new StsClient([
-            'profile' => $profile,
+            'region' => 'us-east-1',
         ]);
-        $accountId = $sts->getCallerIdentity()->toArray()['Account'] ?? null;
-        if (! $accountId) {
+
+        return $sts->getCallerIdentity()->toArray()['Account'] ??
             throw new RuntimeException('Could not determine the AWS account ID');
-        }
-        return $accountId;
     }
 
     private function selectTeam(BrefCloudClient $brefCloud): int

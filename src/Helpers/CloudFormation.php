@@ -122,7 +122,7 @@ class CloudFormation
             'StackName' => $stackName,
         ])->toArray();
         if (! empty($stack['Stacks'][0]['StackStatusReason'])) {
-            throw $stack['Stacks'][0]['StackStatusReason'];
+            throw new Exception($stack['Stacks'][0]['StackStatusReason']);
         }
 
         // Else try to retrieve the events
