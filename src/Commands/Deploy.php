@@ -24,10 +24,13 @@ class Deploy extends Command
 {
     protected function configure(): void
     {
+        ini_set('memory_limit', '512M');
+
         $this
             ->setName('deploy')
             ->setDescription('Deploy the application')
             ->addOption('env', 'e', InputOption::VALUE_REQUIRED, 'The environment to deploy to', 'dev')
+            ->addOption('directory', 'd', InputOption::VALUE_OPTIONAL, 'The directory to deploy', getcwd())
             ->addOption('force', null, InputOption::VALUE_NONE, 'Force the deployment');
     }
 
@@ -35,9 +38,16 @@ class Deploy extends Command
     {
         IO::writeln([Styles::brefHeader(), '']);
 
+        $brefCloud = new BrefCloudClient;
+
         /** @var string $environment */
         $environment = $input->getOption('env');
-        $config = Config::loadConfig();
+
+        /** @var string $dir */
+        $dir = $input->getOption('directory');
+
+        $config = Config::loadConfig($brefCloud, $dir);
+
         $appName = $config['name'];
 
         IO::writeln([
@@ -47,13 +57,9 @@ class Deploy extends Command
 
         IO::spin('deploying');
 
-        // Upload artifacts
-        // ...
-
         // Retrieve the current git ref and commit message to serve as a label for the deployment
         [$gitRef, $gitMessage] = $this->getGitDetails();
 
-        $brefCloud = new BrefCloudClient;
         try {
             $deployment = $brefCloud->startDeployment($environment, $config, $gitRef, $gitMessage);
         } catch (ClientExceptionInterface $e) {
@@ -70,7 +76,22 @@ class Deploy extends Command
                     IO::writeln(['', "Environment $appName/$environment does not exist and will be created."]);
                     $awsAccountName = $this->selectAwsAccount($body['selectAwsAccount']);
                     IO::spin('deploying');
-                    $deployment = $brefCloud->startDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName);
+
+                    // @TODO: DEFINITELY do not like this :|
+                    try {
+                        $deployment = $brefCloud->startDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName);
+                    } catch (ClientExceptionInterface $e) {
+                        $response = $e->getResponse();
+                        if ($response->getStatusCode() === 400) {
+                            $body = $response->toArray(false);
+                            if (($body['code'] ?? '') === 'no_region_for_environment') {
+                                $region = $this->selectAwsRegion();
+                                IO::spin('deploying');
+                                $config['region'] = $region;
+                                $deployment = $brefCloud->startDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName, $region);
+                            }
+                        }
+                    }
                 } else {
                     IO::spinError();
                     throw $e;
@@ -139,6 +160,28 @@ class Deploy extends Command
             throw new Exception('No AWS account selected');
         }
         return $awsAccountName;
+    }
+
+
+    private function selectAwsRegion(): string
+    {
+        $region = IO::ask(new ChoiceQuestion(
+            'Please select the AWS region to deploy to:',
+            [
+                'us-east-1',
+                'us-east-2',
+                'eu-west-1',
+                'eu-west-2',
+                'eu-west-3',
+                // @TODO: regions
+            ]
+        ));
+
+        if (! is_string($region)) {
+            throw new Exception('No AWS Region selected');
+        }
+
+        return $region;
     }
 
     /**

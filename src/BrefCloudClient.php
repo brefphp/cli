@@ -202,4 +202,44 @@ class BrefCloudClient
             ],
         ]);
     }
+
+    public function uploadSourceCodeToS3(string $hash, string $path, $team): string
+    {
+        $signedUrl = $this->retrieveS3SignedUrlForCodeUpload($team, $hash);
+
+        if (isset($signedUrl['uploadUrl'], $signedUrl['uploadHeaders'])) {
+            HttpClient::create()->request(
+                'PUT',
+                $signedUrl['uploadUrl'],
+                [
+                    'headers' => $signedUrl['uploadHeaders'],
+                    'body' => file_get_contents($path),
+                ]
+            );
+        }
+
+        // @TODO: return this ready-to-go from the deployments/packages API
+        [$_, $s3Path] = explode('.amazonaws.com/', $signedUrl['downloadUrl']);
+
+        // @TODO: the API needs to be compliant with multiple regions and return which bucket was used
+        return "s3://bref-cloud-staging-storage-kpss5zgu7abr/$s3Path";
+    }
+
+    /**
+     * @param string $hash
+     * @return array{uploadUrl: string, uploadHeaders: array<string, string>, downloadUrl: string}
+     */
+    private function retrieveS3SignedUrlForCodeUpload(string $team, string $hash): array
+    {
+        $response = $this->client->request('POST', '/api/v1/deployments/packages', [
+            'body' => [
+                'hash' => $hash,
+                'team' => $team,
+            ],
+        ]);
+
+        return $response->toArray();
+    }
+
+
 }
