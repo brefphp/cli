@@ -14,8 +14,8 @@ class Config
      */
     public static function loadConfig(BrefCloudClient $client, string $directory): array
     {
-        if (is_file($directory . 'bref.php')) {
-            $config = require $directory . 'bref.php';
+        if (is_file($directory . '/bref.php')) {
+            $config = require $directory . '/bref.php';
 
             // @TODO: find a way to bring the Bref\Cloud\Laravel as a dependency to the CLI.
             if (! $config instanceof \Bref\Cloud\Laravel) {
@@ -115,16 +115,16 @@ class Config
 
     private static function addFolderContentsToZipArchive(ZipArchive $zip, $rootDirectory, $subfolder = ''): void
     {
-        $contents = scandir($rootDirectory . $subfolder);
+        $contents = scandir($rootDirectory . '/' . $subfolder);
 
         foreach ($contents as $content) {
             if (in_array($content, ['.', '..', '.bref', '.git', '.idea'])) {
                 continue;
             }
 
-            $relativePath = $subfolder . $content;
+            $relativePath = $subfolder . '/' . $content;
 
-            $absolutePath = $rootDirectory . $relativePath;
+            $absolutePath = $rootDirectory . '/' . $relativePath;
 
             // @TODO: work out exclude logic that has to consider wildcard caracters
             // such as `node_modules/**` or `tests/**/*.php`
