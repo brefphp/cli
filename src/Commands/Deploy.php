@@ -30,7 +30,7 @@ class Deploy extends Command
             ->setName('deploy')
             ->setDescription('Deploy the application')
             ->addOption('env', 'e', InputOption::VALUE_REQUIRED, 'The environment to deploy to', 'dev')
-            ->addOption('directory', 'd', InputOption::VALUE_OPTIONAL, 'The directory to deploy', getcwd())
+            ->addOption('config', 'c', InputOption::VALUE_REQUIRED, 'The location of the configuration file to use')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Force the deployment');
     }
 
@@ -43,10 +43,10 @@ class Deploy extends Command
         /** @var string $environment */
         $environment = $input->getOption('env');
 
-        /** @var string $dir */
-        $dir = $input->getOption('directory');
+        /** @var string|null $configFileName */
+        $configFileName = $input->getOption('config');
 
-        $config = Config::loadConfig($brefCloud, $dir);
+        $config = Config::loadConfig($brefCloud, $configFileName);
 
         $appName = $config['name'];
 

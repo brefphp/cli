@@ -12,58 +12,84 @@ class Config
      * @return array{name: string, team: string, type: string}
      * @throws Exception
      */
-    public static function loadConfig(BrefCloudClient $client, string $directory): array
+    public static function loadConfig(BrefCloudClient $client, ?string $fileName): array
     {
-        if (is_file($directory . '/bref.php')) {
-            $config = require $directory . '/bref.php';
-
-            // @TODO: find a way to bring the Bref\Cloud\Laravel as a dependency to the CLI.
-            if (! $config instanceof \Bref\Cloud\Laravel) {
-                throw new Exception('The "bref.php" file must return an instance of \Bref\Cloud\Laravel');
+        if ($fileName) {
+            $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
+            if ($fileExtension === 'yml' || $fileExtension === 'yaml') {
+                return self::loadServerlessConfig($fileName);
             }
+            return self::loadBrefConfig($fileName, $client);
+        }
 
-            // @TODO I don't think this is the best place to put this code, but
-            // we need access to the entire Laravel object before it gets serialized
-            // so that we can process it properly.
-            // The important attributes here are:
-            // - $path
-            // - $exclude
-            // - S3 source code URL
-            // - @TODO: assets?
-            [$hash, $path] = self::zipProjectContents($directory, $config);
-
-            $s3Path = $client->uploadSourceCodeToS3($hash, $path, $config->team);
-
-            $php = $config->path($s3Path)->serialize();
-
-            return [
-                'name' => $config->name,
-                'team' => $config->team,
-                'type' => 'laravel',
-                'php' => $php,
-            ];
+        if (is_file('bref.php')) {
+            return self::loadBrefConfig('bref.php', $client);
         }
 
         if (is_file('serverless.yml')) {
-            $serverlessConfig = self::readYamlFile('serverless.yml');
-            if (empty($serverlessConfig['service']) || ! is_string($serverlessConfig['service']) || str_contains($serverlessConfig['service'], '$')) {
-                throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
-            }
-            $team = (string) ($serverlessConfig['bref']['team'] ?? $serverlessConfig['custom']['bref']['team'] ?? '');
-            if (empty($team)) {
-                throw new Exception('To deploy a Serverless Framework project with Bref Cloud you must set the team name in the "bref.team" field in "serverless.yml"');
-            }
-            if (str_contains($team, '$')) {
-                throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
-            }
-            return [
-                'name' => $serverlessConfig['service'],
-                'team' => $team,
-                'type' => 'serverless-framework',
-            ];
+            return self::loadServerlessConfig('serverless.yml');
         }
 
         throw new Exception('No "serverless.yml" file found in the current directory');
+    }
+
+    /**
+     * @return array{name: string, team: string, type: string}
+     */
+    private static function loadServerlessConfig(string $fileName): array
+    {
+        $serverlessConfig = self::readYamlFile($fileName);
+        if (empty($serverlessConfig['service']) || ! is_string($serverlessConfig['service']) || str_contains($serverlessConfig['service'], '$')) {
+            throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
+        }
+        $team = (string) ($serverlessConfig['bref']['team'] ?? $serverlessConfig['custom']['bref']['team'] ?? '');
+        if (empty($team)) {
+            throw new Exception('To deploy a Serverless Framework project with Bref Cloud you must set the team name in the "bref.team" field in "serverless.yml"');
+        }
+        if (str_contains($team, '$')) {
+            throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
+        }
+        return [
+            'name' => $serverlessConfig['service'],
+            'team' => $team,
+            'type' => 'serverless-framework',
+            // Health checks are automatically enabled if the package is installed
+            'healthChecks' => file_exists('vendor/bref/laravel-health-check/composer.json'),
+        ];
+    }
+
+    /**
+     * @return array{name: string, team: string, type: string}
+     */
+    private static function loadBrefConfig(string $fileName, BrefCloudClient $client): array
+    {
+        $config = require $fileName;
+
+        // @TODO: find a way to bring the Bref\Cloud\Laravel as a dependency to the CLI.
+        if (! $config instanceof \Bref\Cloud\Laravel) {
+            throw new Exception('The "bref.php" file must return an instance of \Bref\Cloud\Laravel');
+        }
+
+        // @TODO I don't think this is the best place to put this code, but
+        // we need access to the entire Laravel object before it gets serialized
+        // so that we can process it properly.
+        // The important attributes here are:
+        // - $path
+        // - $exclude
+        // - S3 source code URL
+        // - @TODO: assets?
+        [$hash, $path] = self::zipProjectContents($config);
+
+        $s3Path = $client->uploadSourceCodeToS3($hash, $path, $config->team);
+
+        $php = $config->path($s3Path)->serialize();
+
+        return [
+            'name' => $config->name,
+            'team' => $config->team,
+            'type' => 'laravel',
+            'php' => $php,
+        ];
     }
 
     /**
@@ -90,8 +116,9 @@ class Config
         }
     }
 
-    private static function zipProjectContents(string $directory, \Bref\Cloud\Laravel $config)
+    private static function zipProjectContents()
     {
+        $directory = getcwd();
         if (! is_dir($directory . '.bref/')) {
             mkdir($directory . '.bref/');
         }
@@ -139,5 +166,4 @@ class Config
             }
         }
     }
-
 }
