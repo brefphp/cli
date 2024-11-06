@@ -3,6 +3,7 @@
 namespace Bref\Cli;
 
 use Exception;
+use JsonException;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml\Yaml;
 
@@ -12,18 +13,18 @@ class Config
      * @return array{name: string, team: string, type: string}
      * @throws Exception
      */
-    public static function loadConfig(?string $fileName): array
+    public static function loadConfig(?string $fileName, ?string $environment): array
     {
         if ($fileName) {
             $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
             if ($fileExtension === 'yml' || $fileExtension === 'yaml') {
                 return self::loadServerlessConfig($fileName);
             }
-            return self::loadBrefConfig($fileName);
+            return self::loadBrefConfig($fileName, $environment);
         }
 
         if (is_file('bref.php')) {
-            return self::loadBrefConfig('bref.php');
+            return self::loadBrefConfig('bref.php', $environment);
         }
 
         if (is_file('serverless.yml')) {
@@ -61,19 +62,40 @@ class Config
     /**
      * @return array{name: string, team: string, type: string}
      */
-    private static function loadBrefConfig(string $fileName): array
+    private static function loadBrefConfig(string $fileName, ?string $environment): array
     {
         // Execute the bref.php file to get the configuration via stdout
         $process = new Process(['php', $fileName]);
+        if ($environment) {
+            $processVariables = getenv();
+            $process->setEnv([
+                ...$processVariables,
+                'BREF_CLI_ENV' => $environment,
+            ]);
+        }
         $process->run();
         if ($process->getExitCode() !== 0) {
             throw new Exception('The "bref.php" file failed to execute: ' . $process->getOutput() . $process->getErrorOutput());
         }
         $output = $process->getOutput();
 
-        $config = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+        try {
+            $config = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw new Exception("The 'bref.php' file returned invalid JSON output\n$output");
+        }
         if (! is_array($config)) {
             throw new Exception('The "bref.php" file must return an array, got: ' . $output);
+        }
+
+        // At this point we only support deploying 1 app at a time
+        // So we'll merge the app configuration at the root
+        if (isset($config['apps'])) {
+            $config = [
+                ...$config['apps'][0],
+                'packages' => $config['packages'],
+                'team' => $config['team'],
+            ];
         }
 
         return $config;

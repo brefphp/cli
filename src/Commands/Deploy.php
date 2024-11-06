@@ -47,7 +47,7 @@ class Deploy extends Command
         /** @var string|null $configFileName */
         $configFileName = $input->getOption('config');
 
-        $config = Config::loadConfig($configFileName);
+        $config = Config::loadConfig($configFileName, $environment);
 
         $appName = $config['name'];
 
@@ -57,7 +57,7 @@ class Deploy extends Command
         ]);
 
         // Upload artifacts
-        $this->uploadArtifacts($brefCloud, $config);
+        $config = $this->uploadArtifacts($brefCloud, $config);
 
         IO::spin('deploying');
 
@@ -215,13 +215,14 @@ class Deploy extends Command
 
     /**
      * @param array{name: string, team: string, type: string, packages?: mixed} $config
+     * @return array{name: string, team: string, type: string}
      */
-    private function uploadArtifacts(BrefCloudClient $brefCloud, array $config): void
+    private function uploadArtifacts(BrefCloudClient $brefCloud, array $config): array
     {
-        if ($config['type'] === 'serverless-framework') return;
-        if (! isset($config['packages'])) return;
-        if (! is_array($config['packages'])) return;
-        if (empty($config['packages'])) return;
+        if ($config['type'] === 'serverless-framework') return $config;
+        if (! isset($config['packages'])) return $config;
+        if (! is_array($config['packages'])) return $config;
+        if (empty($config['packages'])) return $config;
 
         IO::spin('packaging');
 
@@ -254,6 +255,8 @@ class Deploy extends Command
         // Clear the list of packages from the config
         // It is not needed anymore, we don't need to send or store it
         unset($config['packages']);
+
+        return $config;
     }
 
     /**
