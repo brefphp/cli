@@ -12,6 +12,7 @@
         }
     },
     "require": {
+        "ext-zip": "*",
         "amphp/amp": "^3.0",
         "amphp/process": "^2.0",
         "aws/aws-sdk-php": "^3.319",

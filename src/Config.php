@@ -3,8 +3,8 @@
 namespace Bref\Cli;
 
 use Exception;
+use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml\Yaml;
-use ZipArchive;
 
 class Config
 {
@@ -12,18 +12,18 @@ class Config
      * @return array{name: string, team: string, type: string}
      * @throws Exception
      */
-    public static function loadConfig(BrefCloudClient $client, ?string $fileName): array
+    public static function loadConfig(?string $fileName): array
     {
         if ($fileName) {
             $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
             if ($fileExtension === 'yml' || $fileExtension === 'yaml') {
                 return self::loadServerlessConfig($fileName);
             }
-            return self::loadBrefConfig($fileName, $client);
+            return self::loadBrefConfig($fileName);
         }
 
         if (is_file('bref.php')) {
-            return self::loadBrefConfig('bref.php', $client);
+            return self::loadBrefConfig('bref.php');
         }
 
         if (is_file('serverless.yml')) {
@@ -61,35 +61,22 @@ class Config
     /**
      * @return array{name: string, team: string, type: string}
      */
-    private static function loadBrefConfig(string $fileName, BrefCloudClient $client): array
+    private static function loadBrefConfig(string $fileName): array
     {
-        $config = require $fileName;
+        // Execute the bref.php file to get the configuration via stdout
+        $process = new Process(['php', $fileName]);
+        $process->run();
+        if ($process->getExitCode() !== 0) {
+            throw new Exception('The "bref.php" file failed to execute: ' . $process->getOutput() . $process->getErrorOutput());
+        }
+        $output = $process->getOutput();
 
-        // @TODO: find a way to bring the Bref\Cloud\Laravel as a dependency to the CLI.
-        if (! $config instanceof \Bref\Cloud\Laravel) {
-            throw new Exception('The "bref.php" file must return an instance of \Bref\Cloud\Laravel');
+        $config = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+        if (! is_array($config)) {
+            throw new Exception('The "bref.php" file must return an array, got: ' . $output);
         }
 
-        // @TODO I don't think this is the best place to put this code, but
-        // we need access to the entire Laravel object before it gets serialized
-        // so that we can process it properly.
-        // The important attributes here are:
-        // - $path
-        // - $exclude
-        // - S3 source code URL
-        // - @TODO: assets?
-        [$hash, $path] = self::zipProjectContents($config);
-
-        $s3Path = $client->uploadSourceCodeToS3($hash, $path, $config->team);
-
-        $php = $config->path($s3Path)->serialize();
-
-        return [
-            'name' => $config->name,
-            'team' => $config->team,
-            'type' => 'laravel',
-            'php' => $php,
-        ];
+        return $config;
     }
 
     /**
@@ -113,57 +100,6 @@ class Config
             return $yamlContent;
         } catch (Exception $e) {
             throw new Exception("Cannot parse \"$fileName\": " . $e->getMessage(), 0, $e);
-        }
-    }
-
-    private static function zipProjectContents()
-    {
-        $directory = getcwd();
-        if (! is_dir($directory . '.bref/')) {
-            mkdir($directory . '.bref/');
-        }
-
-        $archive = $directory . '.bref/project.zip';
-
-        $zip = new ZipArchive;
-
-        // @TODO should we generate unique names for each time we go through here to not
-        // override existing zip files?
-        $zip->open($archive, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-
-        // @TODO: we need to take $config->path into consideration. For now only the entire
-        // current path is being zipped.
-        self::addFolderContentsToZipArchive($zip, $directory);
-
-        $zip->close();
-
-        return [hash_file('sha256', $archive), $archive];
-    }
-
-    private static function addFolderContentsToZipArchive(ZipArchive $zip, $rootDirectory, $subfolder = ''): void
-    {
-        $contents = scandir($rootDirectory . '/' . $subfolder);
-
-        foreach ($contents as $content) {
-            if (in_array($content, ['.', '..', '.bref', '.git', '.idea'])) {
-                continue;
-            }
-
-            $relativePath = $subfolder . '/' . $content;
-
-            $absolutePath = $rootDirectory . '/' . $relativePath;
-
-            // @TODO: work out exclude logic that has to consider wildcard caracters
-            // such as `node_modules/**` or `tests/**/*.php`
-
-
-            if (is_dir($absolutePath)) {
-                self::addFolderContentsToZipArchive($zip, $rootDirectory, $relativePath . DIRECTORY_SEPARATOR);
-            } elseif (is_file($absolutePath)) {
-                $zip->addFile($absolutePath, $relativePath);
-            } else {
-                throw new Exception('Invalid path: ' . $absolutePath);
-            }
         }
     }
 }

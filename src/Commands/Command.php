@@ -19,6 +19,7 @@ class Command extends \Symfony\Component\Console\Command\Command
         $this
             ->setName('command')
             ->setDescription('Run a CLI command in the deployed application')
+            ->addOption('config', 'c', InputOption::VALUE_REQUIRED, 'The location of the configuration file to use')
             ->addArgument('args', InputArgument::OPTIONAL, 'The command to run', '')
             ->addOption('app', null, InputOption::VALUE_REQUIRED, 'The app name (if outside of a project directory)')
             ->addOption('env', 'e', InputOption::VALUE_REQUIRED, 'The environment to deploy to', 'dev');
@@ -26,6 +27,8 @@ class Command extends \Symfony\Component\Console\Command\Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        /** @var string|null $configFileName */
+        $configFileName = $input->getOption('config');
         /** @var string $command */
         $command = $input->getArgument('args');
         /** @var string $environment */
@@ -33,7 +36,7 @@ class Command extends \Symfony\Component\Console\Command\Command
         /** @var string|null $appName */
         $appName = $input->getOption('app');
         if (! $appName) {
-            $appName = Config::loadConfig()['name'];
+            $appName = Config::loadConfig($configFileName)['name'];
         }
 
         $brefCloud = new BrefCloudClient;

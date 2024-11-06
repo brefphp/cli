@@ -203,7 +203,10 @@ class BrefCloudClient
         ]);
     }
 
-    public function uploadSourceCodeToS3(string $hash, string $path, $team): string
+    /**
+     * @return string S3 URL
+     */
+    public function uploadPackage(string $hash, string $path, string $team): string
     {
         $signedUrl = $this->retrieveS3SignedUrlForCodeUpload($team, $hash);
 

@@ -17,6 +17,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use ZipArchive;
 use function Amp\ByteStream\buffer;
 use function Amp\delay;
 
@@ -46,7 +47,7 @@ class Deploy extends Command
         /** @var string|null $configFileName */
         $configFileName = $input->getOption('config');
 
-        $config = Config::loadConfig($brefCloud, $configFileName);
+        $config = Config::loadConfig($configFileName);
 
         $appName = $config['name'];
 
@@ -54,6 +55,9 @@ class Deploy extends Command
             sprintf("Deploying %s to environment %s", Styles::bold($appName), Styles::bold($environment)),
             '',
         ]);
+
+        // Upload artifacts
+        $this->uploadArtifacts($brefCloud, $config);
 
         IO::spin('deploying');
 
@@ -207,5 +211,90 @@ class Deploy extends Command
         IO::verbose('Git message: ' . $gitMessage);
 
         return [$gitRef, $gitMessage];
+    }
+
+    /**
+     * @param array{name: string, team: string, type: string, packages?: mixed} $config
+     */
+    private function uploadArtifacts(BrefCloudClient $brefCloud, array $config): void
+    {
+        if ($config['type'] === 'serverless-framework') return;
+        if (! isset($config['packages'])) return;
+        if (! is_array($config['packages'])) return;
+        if (empty($config['packages'])) return;
+
+        IO::spin('packaging');
+
+        $packages = $config['packages'];
+        foreach ($packages as $id => $package) {
+            $packages[$id]['archivePath'] = $this->packageArtifact($id, $package['path'], $package['patterns']);
+        }
+
+        IO::spin('uploading');
+
+        foreach ($packages as $id => $package) {
+            // TODO optimize
+            $hash = md5_file($package['archivePath']);
+            if ($hash === false) {
+                throw new Exception('Could not hash the package: ' . $package['archivePath']);
+            }
+
+            $s3Path = $brefCloud->uploadPackage($hash, $package['archivePath'], $config['team']);
+
+            // Go through the config recursively and replace the package magic string with the S3 URL
+            $magicString = "\${package:$id}";
+
+            array_walk_recursive($config, function (&$value) use ($magicString, $s3Path) {
+                if ($value === $magicString) {
+                    $value = $s3Path;
+                }
+            });
+        }
+
+        // Clear the list of packages from the config
+        // It is not needed anymore, we don't need to send or store it
+        unset($config['packages']);
+    }
+
+    /**
+     * @param string[] $patterns
+     */
+    private function packageArtifact(string $id, string $path, array $patterns): string
+    {
+        if (! is_dir('.bref') && ! mkdir('.bref') && ! is_dir('.bref')) {
+            throw new Exception(sprintf('Directory "%s" could not be created', '.bref'));
+        }
+
+        $archivePath = ".bref/package-$id.zip";
+
+        $zip = new ZipArchive;
+        $zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        $this->addFolderToArchive($zip, $path);
+        $zip->close();
+
+        return $archivePath;
+    }
+
+    private function addFolderToArchive(ZipArchive $zip, string $path): void
+    {
+        $list = scandir($path);
+        if ($list === false) {
+            throw new Exception('Could not read directory: ' . $path);
+        }
+
+        foreach ($list as $filename) {
+            if (in_array($filename, ['.', '..'])) continue;
+
+            // @TODO: work out exclude logic that has to consider wildcard caracters
+
+            $filepath = $path . DIRECTORY_SEPARATOR . $filename;
+            if (is_dir($filepath)) {
+                $this->addFolderToArchive($zip, $filepath);
+            } elseif (is_file($filepath)) {
+                $zip->addFile($filepath, $filepath);
+            } else {
+                throw new Exception('Unsupported file type: ' . $filepath);
+            }
+        }
     }
 }
