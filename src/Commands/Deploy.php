@@ -273,6 +273,7 @@ class Deploy extends Command
         $zip = new ZipArchive;
         $zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
         $this->addFolderToArchive($zip, $path);
+        IO::verbose('Writing zip');
         $zip->close();
 
         return $archivePath;
@@ -292,9 +293,11 @@ class Deploy extends Command
 
             $filepath = $path . DIRECTORY_SEPARATOR . $filename;
             if (is_dir($filepath)) {
+                IO::verbose('Zipping files in ' . $filepath);
                 $this->addFolderToArchive($zip, $filepath);
             } elseif (is_file($filepath)) {
                 $zip->addFile($filepath, $filepath);
+                delay(0); // Yield to the event loop
             } else {
                 throw new Exception('Unsupported file type: ' . $filepath);
             }
