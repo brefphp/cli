@@ -178,7 +178,7 @@ class Deploy extends Command
                 'eu-west-2',
                 'eu-west-3',
                 // @TODO: regions
-            ]
+            ],
         ));
 
         if (! is_string($region)) {
@@ -268,18 +268,36 @@ class Deploy extends Command
             throw new Exception(sprintf('Directory "%s" could not be created', '.bref'));
         }
 
+        // Turn the package patterns into regexes
+        $patternRegexes = [];
+        foreach ($patterns as $pattern) {
+            $include = ! str_starts_with($pattern, '!');
+            $pattern = ltrim($pattern, '!');
+            // Prepend the root path
+            $pattern = $path . DIRECTORY_SEPARATOR . $pattern;
+            // Turn the pattern into a regex
+            $pattern = str_replace(['\\', '/', '.', '**', '*'], ['\\\\', '\/', '\.', '.+', '[^\/\\\\]+'], $pattern);
+            $regex = "/^$pattern$/";
+            $patternRegexes[$regex] = $include;
+
+            IO::verbose(($include ? 'Including' : 'Excluding') . " files matching: $pattern");
+        }
+
         $archivePath = ".bref/package-$id.zip";
 
         $zip = new ZipArchive;
         $zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-        $this->addFolderToArchive($zip, $path);
+        $this->addFolderToArchive($zip, $path, $patternRegexes);
         IO::verbose('Writing zip');
         $zip->close();
 
         return $archivePath;
     }
 
-    private function addFolderToArchive(ZipArchive $zip, string $path): void
+    /**
+     * @param array<string, bool> $patternRegexes
+     */
+    private function addFolderToArchive(ZipArchive $zip, string $path, array $patternRegexes): void
     {
         $list = scandir($path);
         if ($list === false) {
@@ -289,12 +307,31 @@ class Deploy extends Command
         foreach ($list as $filename) {
             if (in_array($filename, ['.', '..'])) continue;
 
-            // @TODO: work out exclude logic that has to consider wildcard caracters
-
             $filepath = $path . DIRECTORY_SEPARATOR . $filename;
+
+            // Apply the patterns
+            // The last pattern that matches wins, so we start from the end
+            foreach (array_reverse($patternRegexes) as $regex => $shouldInclude) {
+                try {
+                    $match = preg_match($regex, $filepath);
+                } catch (Exception $e) {
+                    throw new Exception("Invalid packaging pattern regex: $regex (path: $filepath)", 0, $e);
+                }
+                if ($match) {
+                    if (! $shouldInclude) {
+                        // This file should be excluded
+                        IO::verbose('Excluding ' . $filepath);
+                        continue 2;
+                    }
+                    // Get out of the loop because this file needs to be included
+                    break;
+                }
+            }
+
+            IO::verbose('Zipping files in ' . $filepath);
+
             if (is_dir($filepath)) {
-                IO::verbose('Zipping files in ' . $filepath);
-                $this->addFolderToArchive($zip, $filepath);
+                $this->addFolderToArchive($zip, $filepath, $patternRegexes);
             } elseif (is_file($filepath)) {
                 $zip->addFile($filepath, $filepath);
                 delay(0); // Yield to the event loop

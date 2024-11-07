@@ -4,6 +4,7 @@ namespace Bref\Cli;
 
 use Aws\Exception\CredentialsException;
 use Bref\Cli\Cli\IO;
+use ErrorException;
 use Exception;
 use Revolt\EventLoop;
 use Symfony\Component\Console\Input\InputInterface;
@@ -16,6 +17,8 @@ class Application extends \Symfony\Component\Console\Application
     public function __construct()
     {
         parent::__construct('bref');
+
+        $this->turnWarningsIntoExceptions();
 
         $this->add(new Commands\Login);
         $this->add(new Commands\Deploy);
@@ -74,5 +77,12 @@ class Application extends \Symfony\Component\Console\Application
             '<error>  ' . $message . '  </error>',
             '<error>  ' . str_repeat(' ', strlen($message)) . '  </error>',
         ]);
+    }
+
+    private function turnWarningsIntoExceptions(): void
+    {
+        set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline) {
+            throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+        });
     }
 }
