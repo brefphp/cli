@@ -59,7 +59,7 @@ class Deploy extends Command
         // Upload artifacts
         $config = $this->uploadArtifacts($brefCloud, $config);
 
-        IO::spin('deploying');
+        IO::spin('creating deployment');
 
         // Retrieve the current git ref and commit message to serve as a label for the deployment
         [$gitRef, $gitMessage] = $this->getGitDetails();
@@ -119,6 +119,10 @@ class Deploy extends Command
 
             $component = new ServerlessFramework();
             $component->deploy($deploymentId, $environment, $credentials, $brefCloud, $input);
+        } else {
+            // @TODO: in $deployment we should have signedUrl for each package
+            // Here is where we would upload them to S3 and then send a signal
+            // to the backend that we should start deploying.
         }
 
         $startTime = time();
@@ -226,10 +230,14 @@ class Deploy extends Command
 
         IO::spin('packaging');
 
-        $packages = $config['packages'];
-        foreach ($packages as $id => $package) {
-            $packages[$id]['archivePath'] = $this->packageArtifact($id, $package['path'], $package['patterns']);
+        foreach ($config['packages'] as $id => $package) {
+            $config['packages'][$id]['archivePath'] = $this->packageArtifact($id, $package['path'], $package['patterns']);
+
+            $config['packages'][$id]['archiveHash'] = hash_file('sha256', $config['packages'][$id]['archivePath']);
         }
+
+        return $config;
+
 
         IO::spin('uploading');
 
