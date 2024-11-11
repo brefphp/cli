@@ -58,21 +58,20 @@ class BrefCloudClient
      * @param array<string, string> $config
      * @return array{
      *     deploymentId: int,
-     *     status: string,
      *     message: string,
      *     url: string,
-     *     outputs?: array<string, string>,
      *     credentials?: array{
      *         accessKeyId: string,
      *         secretAccessKey: string,
      *         sessionToken: string,
      *     },
+     *     packageUrls?: array<string, string>,
      * }
      *
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface
      */
-    public function startDeployment(string $environment, array $config, string|null $gitRef, string $gitMessage, ?string $awsAccountName = null): array
+    public function createDeployment(string $environment, array $config, string|null $gitRef, string $gitMessage, ?string $awsAccountName = null): array
     {
         $body = [
             'environment' => $environment,
@@ -86,6 +85,11 @@ class BrefCloudClient
         return $this->client->request('POST', '/api/v1/deployments', [
             'json' => $body,
         ])->toArray();
+    }
+
+    public function startDeployment(int $deploymentId): void
+    {
+        $this->client->request('POST', "/api/v1/deployments/$deploymentId/start");
     }
 
     /**
@@ -202,47 +206,4 @@ class BrefCloudClient
             ],
         ]);
     }
-
-    /**
-     * @return string S3 URL
-     */
-    public function uploadPackage(string $hash, string $path, string $team): string
-    {
-        $signedUrl = $this->retrieveS3SignedUrlForCodeUpload($team, $hash);
-
-        if (isset($signedUrl['uploadUrl'], $signedUrl['uploadHeaders'])) {
-            HttpClient::create()->request(
-                'PUT',
-                $signedUrl['uploadUrl'],
-                [
-                    'headers' => $signedUrl['uploadHeaders'],
-                    'body' => file_get_contents($path),
-                ]
-            );
-        }
-
-        // @TODO: return this ready-to-go from the deployments/packages API
-        [$_, $s3Path] = explode('.amazonaws.com/', $signedUrl['downloadUrl']);
-
-        // @TODO: the API needs to be compliant with multiple regions and return which bucket was used
-        return "s3://bref-cloud-staging-storage-kpss5zgu7abr/$s3Path";
-    }
-
-    /**
-     * @param string $hash
-     * @return array{uploadUrl: string, uploadHeaders: array<string, string>, downloadUrl: string}
-     */
-    private function retrieveS3SignedUrlForCodeUpload(string $team, string $hash): array
-    {
-        $response = $this->client->request('POST', '/api/v1/deployments/packages', [
-            'body' => [
-                'hash' => $hash,
-                'team' => $team,
-            ],
-        ]);
-
-        return $response->toArray();
-    }
-
-
 }

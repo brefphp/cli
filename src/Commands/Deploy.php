@@ -56,16 +56,13 @@ class Deploy extends Command
             '',
         ]);
 
-        // Upload artifacts
-        $config = $this->uploadArtifacts($brefCloud, $config);
-
         IO::spin('creating deployment');
 
         // Retrieve the current git ref and commit message to serve as a label for the deployment
         [$gitRef, $gitMessage] = $this->getGitDetails();
 
         try {
-            $deployment = $brefCloud->startDeployment($environment, $config, $gitRef, $gitMessage);
+            $deployment = $brefCloud->createDeployment($environment, $config, $gitRef, $gitMessage);
         } catch (ClientExceptionInterface $e) {
             // 4xx error
             $response = $e->getResponse();
@@ -83,7 +80,7 @@ class Deploy extends Command
 
                     // @TODO: DEFINITELY do not like this :|
                     try {
-                        $deployment = $brefCloud->startDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName);
+                        $deployment = $brefCloud->createDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName);
                     } catch (ClientExceptionInterface $e) {
                         $response = $e->getResponse();
                         if ($response->getStatusCode() === 400) {
@@ -92,8 +89,14 @@ class Deploy extends Command
                                 $region = $this->selectAwsRegion();
                                 IO::spin('deploying');
                                 $config['region'] = $region;
-                                $deployment = $brefCloud->startDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName, $region);
+                                $deployment = $brefCloud->createDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName, $region);
+                            } else {
+                                IO::spinError();
+                                throw $e;
                             }
+                        } else {
+                            IO::spinError();
+                            throw $e;
                         }
                     }
                 } else {
@@ -117,12 +120,17 @@ class Deploy extends Command
                 throw new Exception('Internal error: Bref Cloud did not provide AWS credentials, it should have in its response. Please report this issue.');
             }
 
-            $component = new ServerlessFramework();
-            $component->deploy($deploymentId, $environment, $credentials, $brefCloud, $input);
+            IO::spin('deploying');
+            (new ServerlessFramework())->deploy($deploymentId, $environment, $credentials, $brefCloud, $input);
         } else {
-            // @TODO: in $deployment we should have signedUrl for each package
-            // Here is where we would upload them to S3 and then send a signal
-            // to the backend that we should start deploying.
+            // Upload artifacts
+            if (isset($deployment['packageUrls'])) {
+                $this->uploadArtifacts($config, $deployment['packageUrls']);
+            }
+
+            // Start the deployment now that the artifacts are uploaded
+            IO::spin('deploying');
+            $brefCloud->startDeployment($deploymentId);
         }
 
         $startTime = time();
@@ -219,52 +227,29 @@ class Deploy extends Command
 
     /**
      * @param array{name: string, team: string, type: string, packages?: mixed} $config
-     * @return array{name: string, team: string, type: string}
+     * @param array<string, string> $packageUrls Map of package ID to pre-signed URL
      */
-    private function uploadArtifacts(BrefCloudClient $brefCloud, array $config): array
+    private function uploadArtifacts(array $config, array $packageUrls): void
     {
-        if ($config['type'] === 'serverless-framework') return $config;
-        if (! isset($config['packages'])) return $config;
-        if (! is_array($config['packages'])) return $config;
-        if (empty($config['packages'])) return $config;
+        if (! isset($config['packages'])) return;
+        if (! is_array($config['packages'])) return;
+        if (empty($config['packages'])) return;
 
         IO::spin('packaging');
 
-        foreach ($config['packages'] as $id => $package) {
-            $config['packages'][$id]['archivePath'] = $this->packageArtifact($id, $package['path'], $package['patterns']);
-
-            $config['packages'][$id]['archiveHash'] = hash_file('sha256', $config['packages'][$id]['archivePath']);
+        $archivePaths = [];
+        foreach ($packageUrls as $id => $url) {
+            $package = $config['packages'][$id];
+            $archivePaths[$id] = $this->packageArtifact($id, $package['path'], $package['patterns']);
         }
-
-        return $config;
-
 
         IO::spin('uploading');
 
-        foreach ($packages as $id => $package) {
-            // TODO optimize
-            $hash = md5_file($package['archivePath']);
-            if ($hash === false) {
-                throw new Exception('Could not hash the package: ' . $package['archivePath']);
-            }
-
-            $s3Path = $brefCloud->uploadPackage($hash, $package['archivePath'], $config['team']);
-
-            // Go through the config recursively and replace the package magic string with the S3 URL
-            $magicString = "\${package:$id}";
-
-            array_walk_recursive($config, function (&$value) use ($magicString, $s3Path) {
-                if ($value === $magicString) {
-                    $value = $s3Path;
-                }
-            });
+        foreach ($archivePaths as $id => $archivePath) {
+            $url = $packageUrls[$id];
+            // TODO upload to the pre-signed URL
+            IO::verbose("Uploading $archivePath to $url");
         }
-
-        // Clear the list of packages from the config
-        // It is not needed anymore, we don't need to send or store it
-        unset($config['packages']);
-
-        return $config;
     }
 
     /**
