@@ -63,21 +63,18 @@ class Application extends \Symfony\Component\Console\Application
 
         // Prettify AWS credentials errors
         if ($e instanceof CredentialsException && str_contains($e->getMessage(), 'not found in credentials file')) {
-            $this->renderUserError('AWS profile not found: ' . $e->getMessage(), $output);
+            $this->renderUserError('AWS profile not found: ' . $e->getMessage());
             return;
         }
+
+        IO::verbose($e->getMessage());
 
         parent::renderThrowable($e, $output);
     }
 
-    private function renderUserError(string $message, OutputInterface $output): void
+    private function renderUserError(string $message): void
     {
-        $output->writeln([
-            '',
-            '<error>  ' . str_repeat(' ', strlen($message)) . '  </error>',
-            '<error>  ' . $message . '  </error>',
-            '<error>  ' . str_repeat(' ', strlen($message)) . '  </error>',
-        ]);
+        IO::errorBlock($message);
     }
 
     private function turnWarningsIntoExceptions(): void

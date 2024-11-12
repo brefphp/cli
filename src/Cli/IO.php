@@ -76,6 +76,16 @@ class IO
         self::writeToLogsFile($messages);
     }
 
+    public static function errorBlock(string $message): void
+    {
+        self::writeln([
+            '',
+            Styles::bgRed('<error>  ' . str_repeat(' ', strlen($message)) . '  </error>'),
+            Styles::bgRed('<error>  ' . $message . '  </error>'),
+            Styles::bgRed('<error>  ' . str_repeat(' ', strlen($message)) . '  </error>'),
+        ]);
+    }
+
     public static function enableVerbose(): void
     {
         if (self::$verboseMode) return;
