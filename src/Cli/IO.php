@@ -32,6 +32,13 @@ class IO
 
         // Store verbose logs in the temp directory
         $logsFilePath = sys_get_temp_dir() . '/bref.log';
+        $previousLogsFilePath = sys_get_temp_dir() . '/bref-previous.log';
+        if (file_exists($previousLogsFilePath)) {
+            unlink($previousLogsFilePath);
+        }
+        if (file_exists($logsFilePath)) {
+            rename($logsFilePath, $previousLogsFilePath);
+        }
         self::$logsFileResource = fopen($logsFilePath, 'wb');
 
         VerboseModeEnabler::init($input);
@@ -129,6 +136,11 @@ class IO
     public static function isInteractive(): bool
     {
         return self::$input->isInteractive() && self::$output->isDecorated();
+    }
+
+    public static function previousVerboseLogs(): string
+    {
+        return (string) file_get_contents(sys_get_temp_dir() . '/bref-previous.log');
     }
 
     /**

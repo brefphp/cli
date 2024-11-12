@@ -24,6 +24,7 @@ class Application extends \Symfony\Component\Console\Application
         $this->add(new Commands\Deploy);
         $this->add(new Commands\Command);
         $this->add(new Commands\Connect);
+        $this->add(new Commands\PreviousLogs);
     }
 
     public function doRun(InputInterface $input, OutputInterface $output): int
