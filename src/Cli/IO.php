@@ -98,6 +98,9 @@ class IO
         } else {
             self::$spinner->setMessage($message);
         }
+
+        // Also log to verbose logs
+        self::verbose(ucfirst($message));
     }
 
     public static function spinError(string $message = 'error'): void
