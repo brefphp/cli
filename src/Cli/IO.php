@@ -7,6 +7,7 @@ use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\Question;
+use Throwable;
 
 class IO
 {
@@ -76,13 +77,24 @@ class IO
         self::writeToLogsFile($messages);
     }
 
-    public static function errorBlock(string $message): void
+    public static function error(Throwable $e, bool $logStackTrace = true): void
     {
+        $exceptionClass = get_class($e);
+        $parts = explode('\\', $exceptionClass);
+        $shortClassName = end($parts);
+
+        if ($logStackTrace) {
+            self::verbose($exceptionClass . ': ' . $e->getMessage());
+            $stackTrace = $e->getTraceAsString();
+            // Simplify the stack trace by removing the path to the current project
+            $cliPath = dirname(dirname(__DIR__)) . '/';
+            $stackTrace = str_replace($cliPath, '', $stackTrace);
+            self::verbose($stackTrace);
+        }
+
         self::writeln([
             '',
-            Styles::bgRed('<error>  ' . str_repeat(' ', strlen($message)) . '  </error>'),
-            Styles::bgRed('<error>  ' . $message . '  </error>'),
-            Styles::bgRed('<error>  ' . str_repeat(' ', strlen($message)) . '  </error>'),
+            Styles::red('× ' . $e->getMessage()) . Styles::gray(' ' . $shortClassName),
         ]);
     }
 
