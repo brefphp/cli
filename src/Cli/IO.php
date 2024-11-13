@@ -94,7 +94,7 @@ class IO
 
         self::writeln([
             '',
-            Styles::red('× ' . $e->getMessage()) . Styles::gray(' ' . $shortClassName),
+            Styles::bold(Styles::red('× ' . $e->getMessage())) . Styles::gray(' ' . $shortClassName),
         ]);
     }
 
