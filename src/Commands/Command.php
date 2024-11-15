@@ -36,7 +36,7 @@ class Command extends \Symfony\Component\Console\Command\Command
         /** @var string|null $appName */
         $appName = $input->getOption('app');
         if (! $appName) {
-            $appName = Config::loadConfig($configFileName, $environment)['name'];
+            $appName = Config::loadConfig($configFileName, $environment, null)['name'];
         }
 
         $brefCloud = new BrefCloudClient;

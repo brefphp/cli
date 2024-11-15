@@ -13,7 +13,7 @@ class Config
      * @return array{name: string, team: string, type: string}
      * @throws Exception
      */
-    public static function loadConfig(?string $fileName, ?string $environment): array
+    public static function loadConfig(?string $fileName, ?string $environment, ?string $overrideTeam): array
     {
         if ($fileName) {
             $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
@@ -24,11 +24,11 @@ class Config
         }
 
         if (is_file('bref.php')) {
-            return self::loadBrefConfig('bref.php', $environment);
+            return self::loadBrefConfig('bref.php', $environment, $overrideTeam);
         }
 
         if (is_file('serverless.yml')) {
-            return self::loadServerlessConfig('serverless.yml');
+            return self::loadServerlessConfig('serverless.yml', $overrideTeam);
         }
 
         throw new Exception('No "serverless.yml" file found in the current directory');
@@ -37,7 +37,7 @@ class Config
     /**
      * @return array{name: string, team: string, type: string}
      */
-    private static function loadServerlessConfig(string $fileName): array
+    private static function loadServerlessConfig(string $fileName, ?string $overrideTeam): array
     {
         $serverlessConfig = self::readYamlFile($fileName);
         if (empty($serverlessConfig['service']) || ! is_string($serverlessConfig['service']) || str_contains($serverlessConfig['service'], '$')) {
@@ -52,7 +52,7 @@ class Config
         }
         return [
             'name' => $serverlessConfig['service'],
-            'team' => $team,
+            'team' => $overrideTeam ?: $team,
             'type' => 'serverless-framework',
             // Health checks are automatically enabled if the package is installed
             'healthChecks' => file_exists('vendor/bref/laravel-health-check/composer.json'),
@@ -62,7 +62,7 @@ class Config
     /**
      * @return array{name: string, team: string, type: string}
      */
-    private static function loadBrefConfig(string $fileName, ?string $environment): array
+    private static function loadBrefConfig(string $fileName, ?string $environment, ?string $overrideTeam): array
     {
         // Execute the bref.php file to get the configuration via stdout
         $process = new Process(['php', $fileName]);
@@ -94,7 +94,7 @@ class Config
             $config = [
                 ...$config['apps'][0],
                 'packages' => $config['packages'],
-                'team' => $config['team'],
+                'team' => $overrideTeam ?: $config['team'],
             ];
         }
 

@@ -32,6 +32,7 @@ class Deploy extends Command
             ->setDescription('Deploy the application')
             ->addOption('env', 'e', InputOption::VALUE_REQUIRED, 'The environment to deploy to', 'dev')
             ->addOption('config', 'c', InputOption::VALUE_REQUIRED, 'The location of the configuration file to use')
+            ->addOption('team', null, InputOption::VALUE_REQUIRED, 'Override the team to deploy to')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Force the deployment');
     }
 
@@ -47,7 +48,7 @@ class Deploy extends Command
         /** @var string|null $configFileName */
         $configFileName = $input->getOption('config');
 
-        $config = Config::loadConfig($configFileName, $environment);
+        $config = Config::loadConfig($configFileName, $environment, $input->getOption('team'));
 
         $appName = $config['name'];
 
