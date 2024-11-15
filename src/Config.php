@@ -64,8 +64,13 @@ class Config
      */
     private static function loadBrefConfig(string $fileName, ?string $environment, ?string $overrideTeam): array
     {
+        $absolute = realpath($fileName);
+        $file = basename($absolute);
+        $dir = dirname($absolute);
+
         // Execute the bref.php file to get the configuration via stdout
-        $process = new Process(['php', $fileName]);
+        $process = new Process(['php', $file]);
+        $process->setWorkingDirectory($dir);
         if ($environment) {
             $processVariables = getenv();
             $process->setEnv([

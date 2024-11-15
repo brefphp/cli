@@ -297,7 +297,7 @@ class Deploy extends Command
 
         $zip = new ZipArchive;
         $zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-        $this->addFolderToArchive($zip, $path, $patternRegexes);
+        $this->addFolderToArchive($zip, $path, $patternRegexes, $path);
         IO::verbose('Writing zip');
         $zip->close();
 
@@ -307,7 +307,7 @@ class Deploy extends Command
     /**
      * @param array<string, bool> $patternRegexes
      */
-    private function addFolderToArchive(ZipArchive $zip, string $path, array $patternRegexes): void
+    private function addFolderToArchive(ZipArchive $zip, string $path, array $patternRegexes, string $trimFromPath): void
     {
         $list = scandir($path);
         if ($list === false) {
@@ -341,9 +341,9 @@ class Deploy extends Command
             IO::verbose('Zipping files in ' . $filepath);
 
             if (is_dir($filepath)) {
-                $this->addFolderToArchive($zip, $filepath, $patternRegexes);
+                $this->addFolderToArchive($zip, $filepath, $patternRegexes, $trimFromPath);
             } elseif (is_file($filepath)) {
-                $zip->addFile($filepath, $filepath);
+                $zip->addFile($filepath, str_replace($trimFromPath, '', $filepath));
                 delay(0); // Yield to the event loop
             } else {
                 throw new Exception('Unsupported file type: ' . $filepath);
