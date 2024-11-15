@@ -20,7 +20,7 @@ class Config
             if ($fileExtension === 'yml' || $fileExtension === 'yaml') {
                 return self::loadServerlessConfig($fileName);
             }
-            return self::loadBrefConfig($fileName, $environment);
+            return self::loadBrefConfig($fileName, $environment, $overrideTeam);
         }
 
         if (is_file('bref.php')) {

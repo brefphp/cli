@@ -16,6 +16,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use ZipArchive;
 use function Amp\ByteStream\buffer;
@@ -248,7 +249,22 @@ class Deploy extends Command
 
         foreach ($archivePaths as $id => $archivePath) {
             $url = $packageUrls[$id];
-            // TODO upload to the pre-signed URL
+
+            $client = HttpClient::create([
+                'timeout' => 10,
+                'headers' => [
+                    'User-Agent' => 'Bref CLI',
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ],
+            ]);
+
+            // Note: Symfony suggests using `fopen()` to stream the content, but S3 does not
+            // support streaming that way and throws a 501 Not Implemented exception.
+            // Sending the entire file in one batch works fine, but this likely
+            // creates a blocking operation for the CLI.
+            $client->request('PUT', $url, ['body' => file_get_contents($archivePath)]);
+
             IO::verbose("Uploading $archivePath to $url");
         }
     }
