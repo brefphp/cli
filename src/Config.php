@@ -18,7 +18,7 @@ class Config
         if ($fileName) {
             $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
             if ($fileExtension === 'yml' || $fileExtension === 'yaml') {
-                return self::loadServerlessConfig($fileName);
+                return self::loadServerlessConfig($fileName, $overrideTeam);
             }
             return self::loadBrefConfig($fileName, $environment, $overrideTeam);
         }

@@ -4,6 +4,7 @@ namespace Bref\Cli\Commands;
 
 use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
+use Bref\Cli\Cli\OpenUrl;
 use Bref\Cli\Cli\Styles;
 use Bref\Cli\Token;
 use Symfony\Component\Console\Command\Command;
@@ -33,7 +34,7 @@ class Login extends Command
             'Once that is done, please paste your Bref Cloud token below.',
             '',
         ]);
-        $this->open($url);
+        OpenUrl::open($url);
 
         $question = new Question('Bref Cloud token:');
         $question->setHidden(true)
@@ -62,22 +63,5 @@ class Login extends Command
         ]);
 
         return 0;
-    }
-
-    private function open(string $url): void
-    {
-        switch (php_uname('s')) {
-            case 'Darwin':
-                exec('open ' . escapeshellarg($url));
-                break;
-            case 'Windows':
-                exec('start ' . escapeshellarg($url));
-                break;
-            default:
-                if (exec('which xdg-open')) {
-                    exec('xdg-open ' . escapeshellarg($url));
-                }
-                break;
-        }
     }
 }

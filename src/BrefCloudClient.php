@@ -140,6 +140,21 @@ class BrefCloudClient
     }
 
     /**
+     * @return array{id: int, name: string, region: string, url: string, outputs: array<string, string>, app: array{id: int, name: string}}
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function getEnvironment(string $teamSlug, string $appName, string $environment): array
+    {
+        return $this->client->request('GET', '/api/v1/environments/find?' . http_build_query([
+            'teamSlug' => $teamSlug,
+            'appName' => $appName,
+            'environmentName' => $environment,
+        ]))->toArray();
+    }
+
+    /**
      * @return array{success: bool, output: string}
      *
      * @throws HttpExceptionInterface
