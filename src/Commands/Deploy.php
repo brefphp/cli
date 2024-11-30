@@ -127,6 +127,8 @@ class Deploy extends Command
         } else {
             // Upload artifacts
             if (isset($deployment['packageUrls'])) {
+                $brefCloud->pushDeploymentLogs($deploymentId, 'Packaging and uploading artifacts');
+
                 $this->uploadArtifacts($config, $deployment['packageUrls']);
             }
 
