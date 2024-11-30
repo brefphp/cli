@@ -265,7 +265,7 @@ class Deploy extends Command
             // creates a blocking operation for the CLI.
             $client->request('PUT', $url, ['body' => file_get_contents($archivePath)]);
 
-            IO::verbose("Uploading $archivePath to $url");
+            IO::verbose("Uploading $archivePath");
         }
     }
 
@@ -337,8 +337,6 @@ class Deploy extends Command
                     break;
                 }
             }
-
-            IO::verbose('Zipping files in ' . $filepath);
 
             if (is_dir($filepath)) {
                 $this->addFolderToArchive($zip, $filepath, $patternRegexes, $trimFromPath);
