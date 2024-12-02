@@ -16,6 +16,12 @@ use function Amp\ByteStream\buffer;
 
 class ServerlessFramework
 {
+    private const IGNORED_LOGS = [
+        'https://dashboard.bref.sh',
+        '(node:83031) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.',
+        '(Use `node --trace-deprecation ...` to show where the warning was created)',
+    ];
+
     /**
      * @param array{ accessKeyId: string, secretAccessKey: string, sessionToken: string } $awsCredentials
      * @throws ProcessException
@@ -35,6 +41,9 @@ class ServerlessFramework
             async(function () use ($process, &$newLogs) {
                 while (($chunk = $process->getStdout()->read()) !== null) {
                     if (empty($chunk)) continue;
+                    foreach (self::IGNORED_LOGS as $ignoredLog) {
+                        if (str_contains($chunk, $ignoredLog)) continue 2;
+                    }
                     IO::verbose($chunk);
                     $newLogs .= $chunk;
                 }
@@ -42,7 +51,9 @@ class ServerlessFramework
             async(function () use ($process, &$newLogs) {
                 while (($chunk = $process->getStderr()->read()) !== null) {
                     if (empty($chunk)) continue;
-                    if (str_contains($chunk, 'https://dashboard.bref.sh')) continue;
+                    foreach (self::IGNORED_LOGS as $ignoredLog) {
+                        if (str_contains($chunk, $ignoredLog)) continue 2;
+                    }
                     IO::verbose($chunk);
                     $newLogs .= $chunk;
                 }
