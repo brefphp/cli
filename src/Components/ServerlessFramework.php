@@ -34,11 +34,12 @@ class ServerlessFramework
         }
 
         $newLogs = '';
+        $entireSlsOutput = '';
 
         try {
 
             $process = $this->serverlessExec('deploy', $environment, $awsCredentials, $options);
-            async(function () use ($process, &$newLogs) {
+            async(function () use ($process, &$newLogs, &$entireSlsOutput) {
                 while (($chunk = $process->getStdout()->read()) !== null) {
                     if (empty($chunk)) continue;
                     foreach (self::IGNORED_LOGS as $ignoredLog) {
@@ -46,9 +47,10 @@ class ServerlessFramework
                     }
                     IO::verbose($chunk);
                     $newLogs .= $chunk;
+                    $entireSlsOutput .= $chunk;
                 }
             });
-            async(function () use ($process, &$newLogs) {
+            async(function () use ($process, &$newLogs, &$entireSlsOutput) {
                 while (($chunk = $process->getStderr()->read()) !== null) {
                     if (empty($chunk)) continue;
                     foreach (self::IGNORED_LOGS as $ignoredLog) {
@@ -56,6 +58,7 @@ class ServerlessFramework
                     }
                     IO::verbose($chunk);
                     $newLogs .= $chunk;
+                    $entireSlsOutput .= $chunk;
                 }
             });
             // Send logs to Bref Cloud every x seconds
@@ -72,7 +75,8 @@ class ServerlessFramework
             if ($exitCode > 0) {
                 $newLogs .= "Error while running 'serverless deploy', deployment failed\n";
                 IO::writeln("Error while running 'serverless deploy', deployment failed");
-                $brefCloud->markDeploymentFinished($deploymentId, false, $newLogs);
+                $errorMessage = $this->findErrorMessageInServerlessOutput($entireSlsOutput);
+                $brefCloud->markDeploymentFinished($deploymentId, false, $errorMessage, $newLogs);
                 return;
             }
 
@@ -84,16 +88,16 @@ class ServerlessFramework
                 $stackName = $outputs['stack'];
                 unset($outputs['stack'], $outputs['region']);
 
-                $brefCloud->markDeploymentFinished($deploymentId, true, $newLogs, $region, $stackName, $outputs);
+                $brefCloud->markDeploymentFinished($deploymentId, true, null, $newLogs, $region, $stackName, $outputs);
             } else {
-                $brefCloud->markDeploymentFinished($deploymentId, true, $newLogs);
+                $brefCloud->markDeploymentFinished($deploymentId, true, null, $newLogs);
             }
 
         } catch (Throwable $e) {
             // We don't want the CLI to fail and the deployment to stay in "deploying" status in Cloud
             $newLogs .= 'Uncaught error: ' . $e->getMessage();
             $newLogs .= $e->getTraceAsString();
-            $brefCloud->markDeploymentFinished($deploymentId, false, $newLogs);
+            $brefCloud->markDeploymentFinished($deploymentId, false, $e->getMessage(), $newLogs);
 
             throw $e;
         }
@@ -226,5 +230,18 @@ class ServerlessFramework
             if (str_contains($name, 'LambdaFunctionQualifiedArn')) return false;
             return true;
         }, ARRAY_FILTER_USE_KEY);
+    }
+
+    private function findErrorMessageInServerlessOutput(string $entireSlsOutput): string
+    {
+        // Try to find the next line after `Error:\n`
+        $lines = explode("\n", trim($entireSlsOutput));
+        foreach ($lines as $i => $line) {
+            if ($line === 'Error:' && isset($lines[$i + 1])) {
+                return $lines[$i + 1];
+            }
+        }
+        // Return the last line or fallback to a generic message
+        return $line ?: 'The "serverless deploy" command failed with an unknown error.';
     }
 }

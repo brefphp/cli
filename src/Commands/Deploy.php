@@ -154,7 +154,11 @@ class Deploy extends Command
             }
             if ($deployment['status'] === 'failed') {
                 IO::spinError($deployment['message']);
-                IO::writeln(['', Styles::gray('Deployment logs: ' . $deployment['url'])]);
+                IO::writeln([
+                    Styles::bold(Styles::red($deployment['error_message'] ?? 'Unknown error')),
+                    '',
+                    Styles::gray('Deployment logs: ' . $deployment['url']),
+                ]);
                 return 1;
             }
             delay(1);

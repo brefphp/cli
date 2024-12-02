@@ -93,7 +93,14 @@ class BrefCloudClient
     }
 
     /**
-     * @return array{deploymentId: int, status: string, message: string, url: string, outputs?: array<string, string>}
+     * @return array{
+     *     deploymentId: int,
+     *     status: string,
+     *     message: string,
+     *     error_message: string|null,
+     *     url: string,
+     *     outputs?: array<string, string>,
+     * }
      *
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface
@@ -112,9 +119,13 @@ class BrefCloudClient
         ]);
     }
 
+    /**
+     * @param array<string, string> $outputs
+     */
     public function markDeploymentFinished(
         int $deploymentId,
         bool $success,
+        ?string $errorMessage,
         string $logs,
         ?string $region = null,
         ?string $stackName = null,
@@ -123,6 +134,7 @@ class BrefCloudClient
     {
         $body = [
             'success' => $success,
+            'errorMessage' => $errorMessage,
             'logs' => $logs,
         ];
         if ($region) {
