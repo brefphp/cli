@@ -258,25 +258,29 @@ class Deploy extends Command
 
         IO::spin('uploading');
 
+        $client = HttpClient::create([
+            'timeout' => 10,
+            'headers' => [
+                'User-Agent' => 'Bref CLI',
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ],
+        ]);
+
         foreach ($archivePaths as $id => $archivePath) {
             $url = $packageUrls[$id];
 
-            $client = HttpClient::create([
-                'timeout' => 10,
-                'headers' => [
-                    'User-Agent' => 'Bref CLI',
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json',
-                ],
-            ]);
+            IO::verbose(sprintf(
+                'Uploading %s (%d MB)',
+                $archivePath,
+                round(((float) filesize($archivePath)) / 1024. / 1024., 1)
+            ));
 
             // Note: Symfony suggests using `fopen()` to stream the content, but S3 does not
             // support streaming that way and throws a 501 Not Implemented exception.
             // Sending the entire file in one batch works fine, but this likely
             // creates a blocking operation for the CLI.
             $client->request('PUT', $url, ['body' => file_get_contents($archivePath)]);
-
-            IO::verbose("Uploading $archivePath");
         }
     }
 
