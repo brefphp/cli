@@ -33,6 +33,10 @@ class Application extends \Symfony\Component\Console\Application
     {
         IO::init($input, $output);
 
+        if ($input->hasParameterOption(['--stage'], true)) {
+            throw new Exception('The "--stage" option does not exist in the "bref" CLI. Use the "--env" option instead.');
+        }
+
         $result = parent::doRun($input, $output);
 
         IO::stop();
