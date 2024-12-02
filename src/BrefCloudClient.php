@@ -152,7 +152,14 @@ class BrefCloudClient
     }
 
     /**
-     * @return array{id: int, name: string, region: string, url: string, outputs: array<string, string>, app: array{id: int, name: string}}
+     * @return array{
+     *     id: int,
+     *     name: string,
+     *     region: string|null,
+     *     url: string|null,
+     *     outputs: array<string, string>,
+     *     app: array{id: int, name: string},
+     * }
      *
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface

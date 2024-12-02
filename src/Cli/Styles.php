@@ -17,9 +17,14 @@ class Styles
         return self::$blueFormatter->apply($text);
     }
 
+    public static function brefLogo(): string
+    {
+        return self::blue('⠷');
+    }
+
     public static function brefHeader(): string
     {
-        return self::blue('⠷') . self::bold(' bref');
+        return self::brefLogo() . self::bold(' bref');
     }
 
     /**

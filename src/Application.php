@@ -22,6 +22,7 @@ class Application extends \Symfony\Component\Console\Application
 
         $this->add(new Commands\Login);
         $this->add(new Commands\Deploy);
+        $this->add(new Commands\Info);
         $this->add(new Commands\Command);
         $this->add(new Commands\Connect);
         $this->add(new Commands\PreviousLogs);
