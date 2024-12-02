@@ -228,7 +228,12 @@ class Deploy extends Command
         $gitMessage = explode("\n", $gitMessage)[0];
 
         IO::verbose('Git ref: ' . $gitRef);
-        IO::verbose('Git message: ' . $gitMessage);
+        $gitMessageLog = explode("\n", $gitMessage)[0] ?? '';
+        IO::verbose(sprintf(
+            'Git commit message: "%s%s"',
+            substr($gitMessageLog, 0, 80),
+            strlen($gitMessage) > 80 ? '…' : '',
+        ));
 
         return [$gitRef, $gitMessage];
     }
@@ -295,8 +300,6 @@ class Deploy extends Command
             $pattern = str_replace(['\\', '/', '.', '**', '*'], ['\\\\', '\/', '\.', '.+', '[^\/\\\\]+'], $pattern);
             $regex = "/^$pattern$/";
             $patternRegexes[$regex] = $include;
-
-            IO::verbose(($include ? 'Including' : 'Excluding') . " files matching: $pattern");
         }
 
         $archivePath = ".bref/package-$id.zip";
@@ -304,7 +307,7 @@ class Deploy extends Command
         $zip = new ZipArchive;
         $zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
         $this->addFolderToArchive($zip, $path, $patternRegexes, $path);
-        IO::verbose('Writing zip');
+        IO::verbose("Writing $archivePath");
         $zip->close();
 
         return $archivePath;
@@ -335,8 +338,6 @@ class Deploy extends Command
                 }
                 if ($match) {
                     if (! $shouldInclude) {
-                        // This file should be excluded
-                        IO::verbose('Excluding ' . $filepath);
                         continue 2;
                     }
                     // Get out of the loop because this file needs to be included
