@@ -9,9 +9,7 @@ use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\Styles;
 use Bref\Cli\Components\ServerlessFramework;
-use Bref\Cli\Config;
 use Exception;
-use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -22,7 +20,7 @@ use ZipArchive;
 use function Amp\ByteStream\buffer;
 use function Amp\delay;
 
-class Deploy extends Command
+class Deploy extends ApplicationCommand
 {
     protected function configure(): void
     {
@@ -31,27 +29,21 @@ class Deploy extends Command
         $this
             ->setName('deploy')
             ->setDescription('Deploy the application')
-            ->addOption('env', 'e', InputOption::VALUE_REQUIRED, 'The environment to deploy to', 'dev')
-            ->addOption('config', 'c', InputOption::VALUE_REQUIRED, 'The location of the configuration file to use')
-            ->addOption('team', null, InputOption::VALUE_REQUIRED, 'Override the team to deploy to')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Force the deployment');
+        parent::configure();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         IO::writeln([Styles::brefHeader(), '']);
 
+        [
+            'appName' => $appName,
+            'environmentName' => $environment,
+            'config' => $config,
+        ] = $this->parseStandardOptions($input);
+
         $brefCloud = new BrefCloudClient;
-
-        /** @var string $environment */
-        $environment = $input->getOption('env');
-
-        /** @var string|null $configFileName */
-        $configFileName = $input->getOption('config');
-
-        $config = Config::loadConfig($configFileName, $environment, $input->getOption('team'));
-
-        $appName = $config['name'];
 
         IO::writeln([
             sprintf("Deploying %s to environment %s", Styles::bold($appName), Styles::bold($environment)),
