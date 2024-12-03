@@ -32,7 +32,7 @@ class Info extends ApplicationCommand
         ]);
 
         $brefCloud = new BrefCloudClient;
-        $environment = $brefCloud->getEnvironment($config['team'], $appName, $environmentName);
+        $environment = $brefCloud->findEnvironment($config['team'], $appName, $environmentName);
         $environmentLink = $brefCloud->url . '/environment/' . $environment['id'];
         IO::writeln([
             "<href=$environmentLink>" . Styles::gray($environmentLink) . '</>',

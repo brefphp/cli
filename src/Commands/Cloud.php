@@ -36,7 +36,7 @@ class Cloud extends \Symfony\Component\Console\Command\Command
         $teamSlug = $config['team'];
 
         $brefCloud = new BrefCloudClient;
-        $environment = $brefCloud->getEnvironment($teamSlug, $appName, $environment);
+        $environment = $brefCloud->findEnvironment($teamSlug, $appName, $environment);
 
         $url = $brefCloud->url . '/environment/' . $environment['id'];
 

@@ -164,13 +164,36 @@ class BrefCloudClient
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface
      */
-    public function getEnvironment(string $teamSlug, string $appName, string $environment): array
+    public function getEnvironment(int $id): array
+    {
+        return $this->client->request('GET', '/api/v1/environments/' . $id)->toArray();
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     name: string,
+     *     region: string|null,
+     *     url: string|null,
+     *     outputs: array<string, string>,
+     *     app: array{id: int, name: string},
+     * }
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function findEnvironment(string $teamSlug, string $appName, string $environment): array
     {
         return $this->client->request('GET', '/api/v1/environments/find?' . http_build_query([
             'teamSlug' => $teamSlug,
             'appName' => $appName,
             'environmentName' => $environment,
         ]))->toArray();
+    }
+
+    public function removeEnvironment(int $environmentId): void
+    {
+        $this->client->request('DELETE', '/api/v1/environments/' . $environmentId);
     }
 
     /**
