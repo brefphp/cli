@@ -76,7 +76,7 @@ class ServerlessFramework
                 $newLogs .= "Error while running 'serverless deploy', deployment failed\n";
                 IO::writeln("Error while running 'serverless deploy', deployment failed");
                 $errorMessage = $this->findErrorMessageInServerlessOutput($entireSlsOutput);
-                $brefCloud->markDeploymentFinished($deploymentId, false, $errorMessage, $newLogs);
+                $brefCloud->markDeploymentFinished($deploymentId, false, 'Serverless Framework error: ' . $errorMessage, $newLogs);
                 return;
             }
 
