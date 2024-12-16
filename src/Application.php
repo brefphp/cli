@@ -63,7 +63,7 @@ class Application extends \Symfony\Component\Console\Application
                     default => $message,
                 };
 
-                $e = new Exception("[$statusCode] $message", $statusCode);
+                $e = new Exception("Bref Cloud API error: [$statusCode] $message", $statusCode);
             } catch (Throwable) {
             }
         }
