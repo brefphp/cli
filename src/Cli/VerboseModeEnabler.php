@@ -3,7 +3,6 @@
 namespace Bref\Cli\Cli;
 
 use Amp\ByteStream\ReadableResourceStream;
-use Amp\CancelledException;
 use Amp\DeferredCancellation;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\StreamableInputInterface;
@@ -78,10 +77,9 @@ class VerboseModeEnabler
 
     public static function stop(): void
     {
-        try {
+        // Ignore: the cancellation already happened, this edge case has been reported by users
+        if (! self::$verboseWatchCancellation?->isCancelled()) {
             self::$verboseWatchCancellation?->cancel();
-        } catch (CancelledException) {
-            // Ignore: the cancellation already happened, this edge case has been reported by users
         }
         self::$verboseWatchCancellation = null;
     }

@@ -6,7 +6,6 @@ use Aws\Exception\CredentialsException;
 use Bref\Cli\Cli\IO;
 use ErrorException;
 use Exception;
-use Revolt\EventLoop;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpClient\Exception\ClientException;
@@ -41,9 +40,6 @@ class Application extends \Symfony\Component\Console\Application
         $result = parent::doRun($input, $output);
 
         IO::stop();
-
-        // Run the event loop until all tasks are done
-        EventLoop::run();
 
         return $result;
     }
