@@ -16,7 +16,7 @@ class BrefCloudClient
     public readonly string $url;
     private HttpClientInterface $client;
 
-    public function __construct(string $token = null)
+    public function __construct(?string $token = null)
     {
         $this->url = self::getUrl();
         if ($token === null) {
