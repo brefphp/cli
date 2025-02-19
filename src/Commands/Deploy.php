@@ -131,8 +131,8 @@ class Deploy extends ApplicationCommand
 
         $startTime = time();
 
-        // Timeout after 10 minutes
-        while (time() - $startTime < 600) {
+        // Timeout after 15 minutes
+        while (time() - $startTime < 15 * 60) {
             $deployment = $brefCloud->getDeployment($deploymentId);
             if ($deployment['status'] === 'success') {
                 IO::spinSuccess($deployment['message']);
