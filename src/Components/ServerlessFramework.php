@@ -75,6 +75,13 @@ class ServerlessFramework
             if ($exitCode > 0) {
                 $newLogs .= "Error while running 'serverless deploy', deployment failed\n";
                 IO::writeln("Error while running 'serverless deploy', deployment failed");
+
+                // If `npx` is not installed throw a clear error message
+                if (str_contains($entireSlsOutput, 'npo: command not found')) {
+                    $brefCloud->markDeploymentFinished($deploymentId, false, 'NPM is not installed. Please make sure Node and NPM are installed: https://docs.npmjs.com/downloading-and-installing-node-js-and-npm', $newLogs);
+                    return;
+                }
+
                 $errorMessage = $this->findErrorMessageInServerlessOutput($entireSlsOutput);
                 $brefCloud->markDeploymentFinished($deploymentId, false, 'Serverless Framework error: ' . $errorMessage, $newLogs);
                 return;
