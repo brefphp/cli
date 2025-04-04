@@ -83,7 +83,7 @@ class Connect extends Command
                 'Please name this AWS account in Bref Cloud.',
             ]);
 
-            $question = new Question('Display name:');
+            $question = new Question('Display name: ');
             $question->setValidator(function (string $answer) use ($existingAccounts): string {
                 // Check if the name is already taken
                 foreach ($existingAccounts as $account) {

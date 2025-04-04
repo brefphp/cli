@@ -36,7 +36,7 @@ class Login extends Command
         ]);
         OpenUrl::open($url);
 
-        $question = new Question('Bref Cloud token:');
+        $question = new Question('Bref Cloud token: ');
         $question->setHidden(true)
             ->setHiddenFallback(false)
             ->setTrimmable(true);
