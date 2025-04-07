@@ -197,20 +197,31 @@ class BrefCloudClient
     }
 
     /**
-     * @return array{success: bool, output: string}
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function startCommand(int $environmentId, string $command): int
+    {
+        return $this->client->request('POST', '/api/v1/commands/start', [
+            'json' => [
+                'environmentId' => $environmentId,
+                'command' => $command,
+            ],
+        ])->toArray()['id'];
+    }
+
+    /**
+     * @return array{
+     *     status: 'not_started'|'started'|'success'|'failed',
+     *     output: string,
+     * }
      *
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface
      */
-    public function startCommand(string $appName, string $environment, string $command): array
+    public function getCommand(int $id): array
     {
-        return $this->client->request('POST', '/api/v1/commands', [
-            'json' => [
-                'appName' => $appName,
-                'environmentName' => $environment,
-                'consoleCommand' => $command,
-            ],
-        ])->toArray();
+        return $this->client->request('GET', "/api/v1/commands/$id")->toArray();
     }
 
     /**
