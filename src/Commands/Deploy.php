@@ -251,7 +251,7 @@ class Deploy extends ApplicationCommand
         IO::spin('uploading');
 
         $client = HttpClient::create([
-            'timeout' => 10,
+            'timeout' => 30,
             'headers' => [
                 'User-Agent' => 'Bref CLI',
                 'Content-Type' => 'application/json',
