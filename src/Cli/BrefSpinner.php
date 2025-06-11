@@ -164,6 +164,13 @@ class BrefSpinner
 
     private function formatTime(int|float $secs): string
     {
-        return ((int) floor($secs)) . 's';
+        // If < 100s, show seconds
+        if ($secs < 100) {
+            return ((int) floor($secs)) . 's';
+        }
+        // else show minutes
+        $mins = (int) floor($secs / 60);
+        $secs = (int) floor($secs % 60);
+        return $mins . 'm ' . $secs . 's';
     }
 }
