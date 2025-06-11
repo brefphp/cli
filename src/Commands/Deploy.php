@@ -168,7 +168,7 @@ class Deploy extends ApplicationCommand
         IO::spinError('timeout');
         IO::writeln(['', Styles::gray('Deployment logs: ' . $deployment['url'])]);
 
-        throw new Exception('Deployment timed out after 10 minutes');
+        throw new Exception('Deployment timed out after 15 minutes');
     }
 
     /**
