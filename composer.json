@@ -14,6 +14,8 @@
     "require": {
         "ext-zip": "*",
         "amphp/amp": "^3.0",
+        "amphp/file": "^3.2",
+        "amphp/http-client": "^5.3",
         "amphp/process": "^2.0",
         "aws/aws-sdk-php": "^3.319",
         "revolt/event-loop": "^1.0",

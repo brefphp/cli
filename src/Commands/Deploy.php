@@ -3,6 +3,12 @@
 namespace Bref\Cli\Commands;
 
 use Amp\ByteStream\BufferException;
+use Amp\Http\Client\HttpClientBuilder;
+use Amp\Http\Client\Interceptor\SetRequestHeader;
+use Amp\Http\Client\Interceptor\SetRequestTimeout;
+use Amp\Http\Client\Request;
+use Amp\Http\Client\StreamedContent;
+use Amp\Http\Client\TimeoutException;
 use Amp\Process\Process;
 use Amp\Process\ProcessException;
 use Bref\Cli\BrefCloudClient;
@@ -10,6 +16,7 @@ use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\Styles;
 use Bref\Cli\Components\ServerlessFramework;
 use Exception;
+use Revolt\EventLoop;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -17,8 +24,10 @@ use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use ZipArchive;
+use function Amp\async;
 use function Amp\ByteStream\buffer;
 use function Amp\delay;
+use function Amp\Future\await;
 
 class Deploy extends ApplicationCommand
 {
@@ -250,15 +259,15 @@ class Deploy extends ApplicationCommand
 
         IO::spin('uploading');
 
-        $client = HttpClient::create([
-            'timeout' => 30,
-            'headers' => [
-                'User-Agent' => 'Bref CLI',
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/json',
-            ],
-        ]);
+        $client = (new HttpClientBuilder)
+            ->retry(0)
+            ->intercept(new SetRequestHeader('User-Agent', 'Bref CLI'))
+            ->intercept(new SetRequestHeader('Content-Type', 'application/json'))
+            ->intercept(new SetRequestHeader('Accept', 'application/json'))
+            ->intercept(new SetRequestTimeout(10, 10, 60, 10))
+            ->build();
 
+        $promises = [];
         foreach ($archivePaths as $id => $archivePath) {
             $url = $packageUrls[$id];
 
@@ -272,7 +281,16 @@ class Deploy extends ApplicationCommand
             // support streaming that way and throws a 501 Not Implemented exception.
             // Sending the entire file in one batch works fine, but this likely
             // creates a blocking operation for the CLI.
-            $client->request('PUT', $url, ['body' => file_get_contents($archivePath)]);
+            $request = new Request($url, 'PUT', StreamedContent::fromFile($archivePath));
+            $promises[] = async(fn() => $client->request($request));
+        }
+
+        try {
+            await($promises);
+        } catch (TimeoutException) {
+            throw new Exception('Timeout while uploading packages. Please try again.');
+        } catch (Exception $e) {
+            throw new Exception('Error while uploading packages: ' . $e->getMessage(), 0, $e);
         }
     }
 
