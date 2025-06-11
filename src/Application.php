@@ -4,6 +4,7 @@ namespace Bref\Cli;
 
 use Aws\Exception\CredentialsException;
 use Bref\Cli\Cli\IO;
+use Bref\Cli\Cli\Styles;
 use ErrorException;
 use Exception;
 use Symfony\Component\Console\Input\InputInterface;
@@ -46,6 +47,8 @@ class Application extends \Symfony\Component\Console\Application
 
     public function renderThrowable(Throwable $e, OutputInterface $output): void
     {
+        IO::spinClear();
+
         // Prettify Bref Cloud errors
         if ($e instanceof ClientException) {
             try {
@@ -70,6 +73,9 @@ class Application extends \Symfony\Component\Console\Application
             return;
         }
 
+        if (! IO::isVerbose()) {
+            IO::writeln(Styles::gray('verbose logs are available by running `bref previous-logs`'));
+        }
         IO::error($e);
     }
 

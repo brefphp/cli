@@ -171,6 +171,6 @@ class BrefSpinner
         // else show minutes
         $mins = (int) floor($secs / 60);
         $secs = (int) floor($secs % 60);
-        return $mins . 'm ' . $secs . 's';
+        return $mins . 'm' . $secs . 's';
     }
 }
