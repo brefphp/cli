@@ -24,7 +24,7 @@ class BrefCloudClient
         }
 
         $this->client = HttpClient::createForBaseUri($this->url, [
-            'timeout' => 10,
+            'timeout' => 15,
             'auth_bearer' => $token,
             'headers' => [
                 'User-Agent' => 'Bref CLI',
