@@ -139,7 +139,11 @@ class Deploy extends ApplicationCommand
                 IO::spin('deploying');
                 $brefCloud->startDeployment($deploymentId);
             } catch (Throwable $e) {
-                $brefCloud->markDeploymentFinished($deploymentId, false, 'Error: ' . $e->getMessage(), '');
+                try {
+                    $brefCloud->markDeploymentFinished($deploymentId, false, 'Error: ' . $e->getMessage(), '');
+                } catch (Exception $e) {
+                    // If we cannot mark the deployment as finished, we still want to throw the original exception
+                }
                 throw $e;
             }
         }
@@ -265,12 +269,13 @@ class Deploy extends ApplicationCommand
 
         IO::spin('uploading');
 
+        $timeout = 120;
         $client = (new HttpClientBuilder)
             ->retry(0)
             ->intercept(new SetRequestHeader('User-Agent', 'Bref CLI'))
             ->intercept(new SetRequestHeader('Content-Type', 'application/json'))
             ->intercept(new SetRequestHeader('Accept', 'application/json'))
-            ->intercept(new SetRequestTimeout(10, 10, 60, 10))
+            ->intercept(new SetRequestTimeout(10, 10, $timeout, 60))
             ->build();
 
         $promises = [];
@@ -294,7 +299,7 @@ class Deploy extends ApplicationCommand
         try {
             await($promises);
         } catch (TimeoutException) {
-            throw new Exception('Timeout while uploading packages. Please try again.');
+            throw new Exception("Timeout while uploading packages after $timeout seconds. This is likely due to a slow network connection");
         } catch (Exception $e) {
             throw new Exception('Error while uploading packages: ' . $e->getMessage(), 0, $e);
         }
