@@ -23,6 +23,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Throwable;
 use ZipArchive;
 use function Amp\async;
 use function Amp\ByteStream\buffer;
@@ -126,16 +127,21 @@ class Deploy extends ApplicationCommand
             IO::spin('deploying');
             (new ServerlessFramework())->deploy($deploymentId, $environment, $credentials, $brefCloud, $input);
         } else {
-            // Upload artifacts
-            if (isset($deployment['packageUrls'])) {
-                $brefCloud->pushDeploymentLogs($deploymentId, 'Packaging and uploading artifacts');
+            try {
+                // Upload artifacts
+                if (isset($deployment['packageUrls'])) {
+                    $brefCloud->pushDeploymentLogs($deploymentId, 'Packaging and uploading artifacts');
 
-                $this->uploadArtifacts($config, $deployment['packageUrls']);
+                    $this->uploadArtifacts($config, $deployment['packageUrls']);
+                }
+
+                // Start the deployment now that the artifacts are uploaded
+                IO::spin('deploying');
+                $brefCloud->startDeployment($deploymentId);
+            } catch (Throwable $e) {
+                $brefCloud->markDeploymentFinished($deploymentId, false, 'Error: ' . $e->getMessage(), '');
+                throw $e;
             }
-
-            // Start the deployment now that the artifacts are uploaded
-            IO::spin('deploying');
-            $brefCloud->startDeployment($deploymentId);
         }
 
         $startTime = time();
