@@ -39,7 +39,8 @@ class BrefSpinner
     ];
     private int $startTime;
     private string $message;
-    private int $currentFrame = 0;
+    private ?string $extraMessage = null;
+    private int $currentFrame = 7;
     private bool $started = true;
     private string $timerId;
     private ?Cursor $cursor;
@@ -81,7 +82,7 @@ class BrefSpinner
     /**
      * Finish the indicator with message.
      */
-    public function finish(string $message): void
+    public function finish(string $message, ?string $extraMessage = null): void
     {
         if (! $this->started) throw new LogicException('Progress indicator has not yet been started.');
 
@@ -91,6 +92,7 @@ class BrefSpinner
 
         $this->currentFrame = 5;
         $this->message = $message;
+        $this->extraMessage = $extraMessage;
         $this->render();
         $this->output->writeln('');
         $this->started = false;
@@ -114,7 +116,13 @@ class BrefSpinner
             $frame = Styles::blue('⠷');
         }
 
-        $line = ' ' . $frame . ' ' . $this->message . Styles::gray(' › ' . $this->formatTime(time() - $this->startTime));
+        $timeFormatted = $this->formatTime(time() - $this->startTime);
+        if ($this->extraMessage) {
+            // Finished with success
+            $line = Styles::gray($timeFormatted . ' › ') . $this->message . Styles::gray(' › ') . $this->extraMessage;
+        } else {
+            $line = ' ' . $frame . ' ' . $this->message . Styles::gray(' › ' . $timeFormatted);
+        }
         $this->overwrite($line);
 
         $this->previousMessage = $this->message;

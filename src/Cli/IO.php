@@ -138,9 +138,9 @@ class IO
         self::$spinner = null;
     }
 
-    public static function spinSuccess(string $message): void
+    public static function spinSuccess(string $message, ?string $extraMessage = null): void
     {
-        self::$spinner?->finish($message);
+        self::$spinner?->finish($message, $extraMessage);
         self::$spinner = null;
     }
 

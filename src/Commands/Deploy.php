@@ -16,12 +16,10 @@ use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\Styles;
 use Bref\Cli\Components\ServerlessFramework;
 use Exception;
-use Revolt\EventLoop;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
-use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Throwable;
 use ZipArchive;
@@ -57,7 +55,6 @@ class Deploy extends ApplicationCommand
 
         IO::writeln([
             sprintf("Deploying %s to environment %s", Styles::bold($appName), Styles::bold($environment)),
-            '',
         ]);
 
         IO::spin('creating deployment');
@@ -154,13 +151,7 @@ class Deploy extends ApplicationCommand
         while (time() - $startTime < 15 * 60) {
             $deployment = $brefCloud->getDeployment($deploymentId);
             if ($deployment['status'] === 'success') {
-                IO::spinSuccess($deployment['message']);
-                if ($deployment['outputs'] ?? null) {
-                    IO::writeln('');
-                    foreach ($deployment['outputs'] as $key => $value) {
-                        IO::writeln("$key: $value");
-                    }
-                }
+                IO::spinSuccess($deployment['message'], $deployment['app_url'] ?? null);
                 return 0;
             }
             if ($deployment['status'] === 'failed') {
