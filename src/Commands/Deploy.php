@@ -279,10 +279,6 @@ class Deploy extends ApplicationCommand
                 round(((float) filesize($archivePath)) / 1024. / 1024., 1)
             ));
 
-            // Note: Symfony suggests using `fopen()` to stream the content, but S3 does not
-            // support streaming that way and throws a 501 Not Implemented exception.
-            // Sending the entire file in one batch works fine, but this likely
-            // creates a blocking operation for the CLI.
             $request = new Request($url, 'PUT', StreamedContent::fromFile($archivePath));
             $promises[] = async(fn() => $client->request($request));
         }
