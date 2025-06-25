@@ -115,7 +115,9 @@ class Deploy extends ApplicationCommand
 
         IO::writeln("<href={$deployment['url']}>" . Styles::gray($deployment['url']) . '</>');
 
-        if ($config['type'] === 'serverless-framework') {
+        $isServerlessFrameworkDeploy = $config['type'] === 'serverless-framework';
+
+        if ($isServerlessFrameworkDeploy) {
             if ($credentials === null) {
                 IO::spinError();
                 throw new Exception('Internal error: Bref Cloud did not provide AWS credentials, it should have in its response. Please report this issue.');
@@ -146,10 +148,20 @@ class Deploy extends ApplicationCommand
         }
 
         $startTime = time();
+        $deployLogs = [];
 
         // Timeout after 15 minutes
         while (time() - $startTime < 15 * 60) {
             $deployment = $brefCloud->getDeployment($deploymentId);
+
+            // Logs
+            if (! $isServerlessFrameworkDeploy) {
+                // Diff between all the deployment logs and the ones we already know about
+                $newLogs = array_slice($deployment['logs'], count($deployLogs));
+                IO::verbose(array_map(fn ($record) => $record['line'], $newLogs));
+                $deployLogs = $deployment['logs'];
+            }
+
             if ($deployment['status'] === 'success') {
                 IO::spinSuccess($deployment['message'], $deployment['app_url'] ?? null);
                 return 0;
@@ -163,6 +175,7 @@ class Deploy extends ApplicationCommand
                 ]);
                 return 1;
             }
+
             delay(1);
         }
 

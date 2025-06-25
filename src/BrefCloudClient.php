@@ -99,6 +99,8 @@ class BrefCloudClient
      *     message: string,
      *     error_message: string|null,
      *     url: string,
+     *     app_url: string|null,
+     *     logs: list<array{line: string, timestamp: int}>,
      *     outputs?: array<string, string>,
      * }
      *
