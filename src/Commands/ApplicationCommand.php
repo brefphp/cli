@@ -23,6 +23,7 @@ class ApplicationCommand extends Command
      *     environmentName: string,
      *     team: string,
      *     config: array{name: string, team: string, type: string},
+     *     configFileName: string|null,
      * }
      */
     protected function parseStandardOptions(InputInterface $input): array
@@ -38,6 +39,7 @@ class ApplicationCommand extends Command
             'config' => $config,
             'environmentName' => $environment,
             'team' => $config['team'],
+            ...['configFileName' => $configFileName],
         ];
     }
 }

@@ -32,6 +32,13 @@ class ServerlessFramework
         if ($input->hasOption('force')) {
             $options[] = '--force';
         }
+        if ($input->hasOption('config') && $input->getOption('config')) {
+            $configFile = (string) $input->getOption('config');
+            $options[] = '--config';
+            $options[] = $configFile;
+        } else {
+            $configFile = null;
+        }
 
         $newLogs = '';
         $entireSlsOutput = '';
@@ -89,7 +96,7 @@ class ServerlessFramework
 
             $hasChanges = ! str_contains($newLogs, 'No changes to deploy. Deployment skipped.');
             if ($hasChanges) {
-                $outputs = $this->retrieveOutputs($environment, $awsCredentials);
+                $outputs = $this->retrieveOutputs($environment, $awsCredentials, $configFile);
 
                 $region = $outputs['region'];
                 $stackName = $outputs['stack'];
@@ -115,9 +122,15 @@ class ServerlessFramework
      * @return array<string, string>
      * @throws Exception
      */
-    private function retrieveOutputs(string $environment, array $awsCredentials): array
+    private function retrieveOutputs(string $environment, array $awsCredentials, ?string $configFile): array
     {
-        $process = $this->serverlessExec('info', $environment, $awsCredentials, []);
+        $options = [];
+        if ($configFile) {
+            $options[] = '--config';
+            $options[] = $configFile;
+        }
+
+        $process = $this->serverlessExec('info', $environment, $awsCredentials, $options);
         $process->join();
         $infoOutput = buffer($process->getStdout());
         // Remove non-ASCII characters
