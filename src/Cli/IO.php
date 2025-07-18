@@ -98,6 +98,11 @@ class IO
         ]);
     }
 
+    public static function warning(string $message): void
+    {
+        self::writeln(Styles::bold(Styles::bgYellow(' ! ')) . ' ' . Styles::yellow($message));
+    }
+
     public static function enableVerbose(): void
     {
         if (self::$verboseMode) return;
