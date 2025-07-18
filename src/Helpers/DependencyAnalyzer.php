@@ -8,129 +8,104 @@ use JsonException;
 class DependencyAnalyzer
 {
     /**
-     * @return array{warnings: string[], suggestions: string[]}
+     * @return string[]
      */
     public static function analyzeComposerDependencies(string $composerJsonPath = 'composer.json'): array
     {
         if (!file_exists($composerJsonPath)) {
-            return ['warnings' => [], 'suggestions' => []];
+            return [];
         }
 
         try {
             $composerContent = file_get_contents($composerJsonPath);
             if ($composerContent === false) {
-                return ['warnings' => [], 'suggestions' => []];
+                return [];
             }
 
             $composer = json_decode($composerContent, true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($composer)) {
-                return ['warnings' => [], 'suggestions' => []];
+                return [];
             }
 
             $warnings = [];
-            $suggestions = [];
+            $require = $composer['require'] ?? [];
+            
+            if (!is_array($require)) {
+                return [];
+            }
 
             // Check for AWS SDK
-            $require = $composer['require'] ?? [];
-            if (is_array($require) && isset($require['aws/aws-sdk-php'])) {
-                $isOptimized = self::isAwsSdkOptimized($composerJsonPath);
+            if (isset($require['aws/aws-sdk-php'])) {
+                $isOptimized = self::isAwsSdkOptimized($composer);
                 if (!$isOptimized) {
-                    $warnings[] = 'AWS SDK detected - this can significantly increase deployment size';
-                    $suggestions[] = 'Consider optimizing AWS SDK by including only required services: https://github.com/aws/aws-sdk-php/tree/master/src/Script/Composer';
+                    $warnings[] = 'AWS SDK detected - optimize your deployment size: https://github.com/aws/aws-sdk-php/tree/master/src/Script/Composer';
                 }
             }
 
             // Check for Google SDK
-            if (is_array($require) && (isset($require['google/apiclient']) || isset($require['google/cloud']))) {
-                $isOptimized = self::isGoogleSdkOptimized($composerJsonPath);
+            if (isset($require['google/apiclient']) || isset($require['google/cloud'])) {
+                $isOptimized = self::isGoogleSdkOptimized($composer);
                 if (!$isOptimized) {
-                    $warnings[] = 'Google SDK detected - this can significantly increase deployment size';
-                    $suggestions[] = 'Consider optimizing Google SDK by removing unused services: https://github.com/googleapis/google-api-php-client#cleaning-up-unused-services';
+                    $warnings[] = 'Google SDK detected - optimize your deployment size: https://github.com/googleapis/google-api-php-client#cleaning-up-unused-services';
                 }
             }
 
-            return ['warnings' => $warnings, 'suggestions' => $suggestions];
+            return $warnings;
 
         } catch (JsonException) {
-            return ['warnings' => [], 'suggestions' => []];
+            return [];
         }
     }
 
     /**
      * Check if AWS SDK is optimized by looking for custom scripts or exclusions
+     * @param array<string, mixed> $composer
      */
-    private static function isAwsSdkOptimized(string $composerJsonPath): bool
+    private static function isAwsSdkOptimized(array $composer): bool
     {
-        try {
-            $composerContent = file_get_contents($composerJsonPath);
-            if ($composerContent === false) {
-                return false;
-            }
-
-            $composer = json_decode($composerContent, true, 512, JSON_THROW_ON_ERROR);
-            if (!is_array($composer)) {
-                return false;
-            }
-
-            // Check for AWS SDK optimization script
-            $scripts = $composer['scripts'] ?? [];
-            if (is_array($scripts) && isset($scripts['pre-autoload-dump'])) {
-                $preAutoloadDump = (array) $scripts['pre-autoload-dump'];
-                foreach ($preAutoloadDump as $script) {
-                    if (is_string($script) && str_contains($script, 'aws-sdk-php') && str_contains($script, 'remove-unused-services')) {
-                        return true;
-                    }
+        // Check for AWS SDK optimization script
+        $scripts = $composer['scripts'] ?? [];
+        if (is_array($scripts) && isset($scripts['pre-autoload-dump'])) {
+            $preAutoloadDump = (array) $scripts['pre-autoload-dump'];
+            foreach ($preAutoloadDump as $script) {
+                if (is_string($script) && str_contains($script, 'aws-sdk-php') && str_contains($script, 'remove-unused-services')) {
+                    return true;
                 }
             }
-
-            // Check for custom AWS SDK optimizations in extra section
-            if (isset($composer['extra']['aws']['includes'])) {
-                return true;
-            }
-
-            return false;
-
-        } catch (Exception) {
-            return false;
         }
+
+        // Check for custom AWS SDK optimizations in extra section
+        $extra = $composer['extra'] ?? [];
+        if (is_array($extra) && isset($extra['aws']) && is_array($extra['aws']) && isset($extra['aws']['includes'])) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
      * Check if Google SDK is optimized by looking for custom exclusions
+     * @param array<string, mixed> $composer
      */
-    private static function isGoogleSdkOptimized(string $composerJsonPath): bool
+    private static function isGoogleSdkOptimized(array $composer): bool
     {
-        try {
-            $composerContent = file_get_contents($composerJsonPath);
-            if ($composerContent === false) {
-                return false;
-            }
-
-            $composer = json_decode($composerContent, true, 512, JSON_THROW_ON_ERROR);
-            if (!is_array($composer)) {
-                return false;
-            }
-
-            // Check for Google SDK optimization script
-            $scripts = $composer['scripts'] ?? [];
-            if (is_array($scripts) && isset($scripts['pre-autoload-dump'])) {
-                $preAutoloadDump = (array) $scripts['pre-autoload-dump'];
-                foreach ($preAutoloadDump as $script) {
-                    if (is_string($script) && str_contains($script, 'google') && str_contains($script, 'remove-unused-services')) {
-                        return true;
-                    }
+        // Check for Google SDK optimization script
+        $scripts = $composer['scripts'] ?? [];
+        if (is_array($scripts) && isset($scripts['pre-autoload-dump'])) {
+            $preAutoloadDump = (array) $scripts['pre-autoload-dump'];
+            foreach ($preAutoloadDump as $script) {
+                if (is_string($script) && str_contains($script, 'google') && str_contains($script, 'remove-unused-services')) {
+                    return true;
                 }
             }
-
-            // Check for custom Google SDK optimizations in extra section
-            if (isset($composer['extra']['google']['exclude_files'])) {
-                return true;
-            }
-
-            return false;
-
-        } catch (Exception) {
-            return false;
         }
+
+        // Check for custom Google SDK optimizations in extra section
+        $extra = $composer['extra'] ?? [];
+        if (is_array($extra) && isset($extra['google']) && is_array($extra['google']) && isset($extra['google']['exclude_files'])) {
+            return true;
+        }
+
+        return false;
     }
 }

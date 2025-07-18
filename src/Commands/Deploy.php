@@ -59,14 +59,11 @@ class Deploy extends ApplicationCommand
         ]);
 
         // Analyze dependencies for optimization warnings
-        $dependencyAnalysis = DependencyAnalyzer::analyzeComposerDependencies();
-        if (!empty($dependencyAnalysis['warnings'])) {
+        $dependencyWarnings = DependencyAnalyzer::analyzeComposerDependencies();
+        if (!empty($dependencyWarnings)) {
             IO::writeln(['']);
-            foreach ($dependencyAnalysis['warnings'] as $warning) {
+            foreach ($dependencyWarnings as $warning) {
                 IO::writeln(Styles::yellow('⚠ ' . $warning));
-            }
-            foreach ($dependencyAnalysis['suggestions'] as $suggestion) {
-                IO::writeln(Styles::gray('  ' . $suggestion));
             }
             IO::writeln(['']);
         }
