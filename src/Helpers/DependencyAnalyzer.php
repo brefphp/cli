@@ -34,16 +34,22 @@ class DependencyAnalyzer
                 return [];
             }
 
-            // Check for AWS SDK
-            if (isset($require['aws/aws-sdk-php'])) {
+            // Check for AWS SDK in composer.json or vendor directory
+            $hasAwsSdk = isset($require['aws/aws-sdk-php']) || 
+                         (is_dir('vendor/aws/aws-sdk-php') && file_exists('vendor/aws/aws-sdk-php/composer.json'));
+            
+            if ($hasAwsSdk) {
                 $isOptimized = self::isAwsSdkOptimized($composer);
                 if (!$isOptimized) {
                     $warnings[] = 'AWS SDK detected - optimize your deployment size: https://github.com/aws/aws-sdk-php/tree/master/src/Script/Composer';
                 }
             }
 
-            // Check for Google SDK
-            if (isset($require['google/apiclient']) || isset($require['google/cloud'])) {
+            // Check for Google SDK in composer.json or vendor directory
+            $hasGoogleSdk = isset($require['google/apiclient']) || 
+                           (is_dir('vendor/google/apiclient') && file_exists('vendor/google/apiclient/composer.json'));
+            
+            if ($hasGoogleSdk) {
                 $isOptimized = self::isGoogleSdkOptimized($composer);
                 if (!$isOptimized) {
                     $warnings[] = 'Google SDK detected - optimize your deployment size: https://github.com/googleapis/google-api-php-client#cleaning-up-unused-services';
@@ -68,16 +74,10 @@ class DependencyAnalyzer
         if (is_array($scripts) && isset($scripts['pre-autoload-dump'])) {
             $preAutoloadDump = (array) $scripts['pre-autoload-dump'];
             foreach ($preAutoloadDump as $script) {
-                if (is_string($script) && str_contains($script, 'aws-sdk-php') && str_contains($script, 'remove-unused-services')) {
+                if (is_string($script) && str_contains($script, 'Aws\\Script\\Composer\\Composer::removeUnusedServices')) {
                     return true;
                 }
             }
-        }
-
-        // Check for custom AWS SDK optimizations in extra section
-        $extra = $composer['extra'] ?? [];
-        if (is_array($extra) && isset($extra['aws']) && is_array($extra['aws']) && isset($extra['aws']['includes'])) {
-            return true;
         }
 
         return false;
@@ -94,16 +94,10 @@ class DependencyAnalyzer
         if (is_array($scripts) && isset($scripts['pre-autoload-dump'])) {
             $preAutoloadDump = (array) $scripts['pre-autoload-dump'];
             foreach ($preAutoloadDump as $script) {
-                if (is_string($script) && str_contains($script, 'google') && str_contains($script, 'remove-unused-services')) {
+                if (is_string($script) && str_contains($script, 'Google\\Task\\Composer::cleanup')) {
                     return true;
                 }
             }
-        }
-
-        // Check for custom Google SDK optimizations in extra section
-        $extra = $composer['extra'] ?? [];
-        if (is_array($extra) && isset($extra['google']) && is_array($extra['google']) && isset($extra['google']['exclude_files'])) {
-            return true;
         }
 
         return false;

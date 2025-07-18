@@ -58,14 +58,13 @@ class Deploy extends ApplicationCommand
             sprintf("Deploying %s to environment %s", Styles::bold($appName), Styles::bold($environment)),
         ]);
 
-        // Analyze dependencies for optimization warnings
         $dependencyWarnings = DependencyAnalyzer::analyzeComposerDependencies();
         if (!empty($dependencyWarnings)) {
-            IO::writeln(['']);
+            IO::writeln('');
             foreach ($dependencyWarnings as $warning) {
-                IO::writeln(Styles::yellow('⚠ ' . $warning));
+                IO::warning($warning);
             }
-            IO::writeln(['']);
+            IO::writeln('');
         }
 
         IO::spin('creating deployment');
