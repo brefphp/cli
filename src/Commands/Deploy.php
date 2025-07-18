@@ -15,6 +15,7 @@ use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\Styles;
 use Bref\Cli\Components\ServerlessFramework;
+use Bref\Cli\Helpers\DependencyAnalyzer;
 use Exception;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -56,6 +57,19 @@ class Deploy extends ApplicationCommand
         IO::writeln([
             sprintf("Deploying %s to environment %s", Styles::bold($appName), Styles::bold($environment)),
         ]);
+
+        // Analyze dependencies for optimization warnings
+        $dependencyAnalysis = DependencyAnalyzer::analyzeComposerDependencies();
+        if (!empty($dependencyAnalysis['warnings'])) {
+            IO::writeln(['']);
+            foreach ($dependencyAnalysis['warnings'] as $warning) {
+                IO::writeln(Styles::yellow('⚠ ' . $warning));
+            }
+            foreach ($dependencyAnalysis['suggestions'] as $suggestion) {
+                IO::writeln(Styles::gray('  ' . $suggestion));
+            }
+            IO::writeln(['']);
+        }
 
         IO::spin('creating deployment');
 
