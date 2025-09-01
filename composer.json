@@ -12,6 +12,7 @@
         }
     },
     "require": {
+        "php": "^8.1",
         "ext-zip": "*",
         "amphp/amp": "^3.0",
         "amphp/file": "^3.2",
