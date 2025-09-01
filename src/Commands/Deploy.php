@@ -100,7 +100,7 @@ class Deploy extends ApplicationCommand
                                 $region = $this->selectAwsRegion();
                                 IO::spin('deploying');
                                 $config['region'] = $region;
-                                $deployment = $brefCloud->createDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName, $region);
+                                $deployment = $brefCloud->createDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName);
                             } else {
                                 IO::spinError();
                                 throw $e;
@@ -253,7 +253,7 @@ class Deploy extends ApplicationCommand
         $gitMessage = explode("\n", $gitMessage)[0];
 
         IO::verbose('Git ref: ' . $gitRef);
-        $gitMessageLog = explode("\n", $gitMessage)[0] ?? '';
+        $gitMessageLog = explode("\n", $gitMessage)[0];
         IO::verbose(sprintf(
             'Git commit message: "%s%s"',
             substr($gitMessageLog, 0, 80),

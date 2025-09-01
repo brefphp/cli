@@ -185,8 +185,8 @@ class ServerlessFramework
             // If plugins add extra output afterward, it should be ignored.
             $outputsResults = preg_match('/Stack Outputs:\n(( {2}[ \S]+\n)+)/', $infoOutput, $matches);
             // Also try to extract the stack name and region
-            $stackResults = preg_match('/stack: (.*)\n/', $infoOutput, $matches);
-            $regionResults = preg_match('/region: (.*)\n/', $infoOutput, $matches);
+            $stackResults = preg_match('/stack: (.*)\n/', $infoOutput, $stackMatches);
+            $regionResults = preg_match('/region: (.*)\n/', $infoOutput, $regionMatches);
             if ($outputsResults && $stackResults && $regionResults) {
                 try {
                     $stackOutputs = Yaml::parse($matches[1]);
@@ -194,14 +194,17 @@ class ServerlessFramework
                         throw new Exception('Invalid stack outputs in the "serverless info" output');
                     }
                     $stackOutputs = $this->cleanupCfOutputs($stackOutputs);
-                    $stackName = $matches[2];
+
+                    $stackName = $stackMatches[1];
                     if (! is_string($stackName)) {
                         throw new Exception('Invalid stack name in the "serverless info" output');
                     }
-                    $region = $matches[3];
+
+                    $region = $regionMatches[1];
                     if (! is_string($region)) {
                         throw new Exception('Invalid region in the "serverless info" output');
                     }
+
                     return array_merge([
                         'stack' => $stackName,
                         'region' => $region,
