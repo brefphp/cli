@@ -216,6 +216,12 @@ class IO
             $messages = explode(PHP_EOL, $messages);
         }
 
+        // Symfony `StreamOutput` is not compatible with non-blocking mode
+        // (in that case `fwrite` returns the number of bytes written, which Symfony ignores)
+        // Amphp sets STDOUT and STDERR to non-blocking mode, so we need to set them back to blocking mode here.
+        stream_set_blocking(STDOUT, true);
+        stream_set_blocking(STDERR, true);
+
         self::$output->writeln($messages);
 
         // Render the spinner again
