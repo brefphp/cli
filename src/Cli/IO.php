@@ -210,6 +210,12 @@ class IO
 
         self::$spinner?->clear();
 
+        // For some reason Symfony's Output truncates long strings, this happens with `bref command`
+        // when the resulting output is very long. To avoid this, we split the string into multiple lines.
+        if (is_string($messages)) {
+            $messages = explode(PHP_EOL, $messages);
+        }
+
         self::$output->writeln($messages);
 
         // Render the spinner again
