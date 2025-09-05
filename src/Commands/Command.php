@@ -50,7 +50,7 @@ class Command extends ApplicationCommand
 
             if ($invocation['status'] === 'success') {
                 IO::spinClear();
-                IO::writeln($invocation['output']);
+                $output->writeln($invocation['output']);
                 return 0;
             }
 
