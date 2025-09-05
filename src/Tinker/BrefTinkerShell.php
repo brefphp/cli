@@ -8,10 +8,7 @@ use Psy\Shell;
 
 class BrefTinkerShell extends Shell
 {
-    /**
-     * @var ShellOutput
-     */
-    public $rawOutput;
+    public ShellOutput $rawOutput;
     
     protected string $commandInput;
     

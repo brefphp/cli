@@ -43,7 +43,7 @@ class BrefTinkerLoopListener extends AbstractListener
         // Evaluate the current code buffer
         try {
             $command = new Command();
-            $args = join(" ", [
+            $args = implode(" ", [
                 'bref:tinker',
                 '--execute=\"'.base64_encode($code).'\"',
                 '--context=\"'.$context.'\"',
