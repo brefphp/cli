@@ -28,6 +28,7 @@ class Application extends \Symfony\Component\Console\Application
         $this->add(new Commands\Connect);
         $this->add(new Commands\PreviousLogs);
         $this->add(new Commands\Cloud);
+        $this->add(new Commands\Tinker);
     }
 
     public function doRun(InputInterface $input, OutputInterface $output): int
