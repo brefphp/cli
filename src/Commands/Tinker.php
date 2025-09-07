@@ -2,14 +2,11 @@
 
 namespace Bref\Cli\Commands;
 
-use Bref\Cli\Tinker\BrefTinkerShell;
-use Psy\Configuration;
-use Psy\Shell;
 use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\Styles;
-use Bref\Cli\BrefCloudClient;
+use Bref\Cli\Tinker\BrefTinkerShell;
+use Psy\Configuration;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class Tinker extends ApplicationCommand
@@ -28,22 +25,27 @@ class Tinker extends ApplicationCommand
     {
         IO::writeln([Styles::brefHeader(), '']);
         
-        [
-            'appName' => $appName,
-            'environmentName' => $environmentName,
-            'team' => $team,
-        ] = $this->parseStandardOptions($input);
+        $brefCloudConfig = $this->parseStandardOptions($input);
 
-        // Auto enable verbose to avoid verbose async listener in VerboseModeEnabler which will causes issue when executing multiple commands
+        // Auto enable verbose to avoid verbose async listener in VerboseModeEnabler which will cause issue when executing multiple commands
         IO::enableVerbose();
+        IO::writeln(sprintf(
+            "Starting Interactive Shell Session for [%s] in the [%s] environment",
+            Styles::green($brefCloudConfig['appName']),
+            Styles::red($brefCloudConfig['environmentName']),
+        ));
         
-        $config = Configuration::fromInput($input);
-        $shellOutput = $config->getOutput();
-        $shellOutput->writeln(sprintf("Starting Interactive Shell Session for <string>[%s]</string> in the <string>[%s]</string> environment", Styles::green($appName), Styles::red($environmentName)));
+        $shellConfig = Configuration::fromInput($input);
+        $shellOutput = $shellConfig->getOutput();
         
-        $shell = new BrefTinkerShell($config, str_replace("tinker", "command", (string) $input));
+        $shell = new BrefTinkerShell($shellConfig, $brefCloudConfig);
         $shell->setRawOutput($shellOutput);
 
-        return $shell->run();
+        try {
+            return $shell->run();
+        } catch (\Throwable $e) {
+            IO::writeln(Styles::red($e->getMessage()));
+            return 1;
+        }
     }
 }

@@ -3,26 +3,29 @@
 namespace Bref\Cli\Tinker;
 
 use Psy\Configuration;
+use Psy\ExecutionLoop\AbstractListener;
 use Psy\Output\ShellOutput;
 use Psy\Shell;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 
 class BrefTinkerShell extends Shell
 {
+    public ShellOutput $rawOutput;
+
     /**
-     * @var ShellOutput
+     * @var array<string, string>
      */
-    public $rawOutput;
-    
-    protected string $commandInput;
-    
-    public function __construct(?Configuration $config = null, string $commandInput = '')
+    protected array $brefCloudConfig;
+
+    public function __construct(?Configuration $config = null, array $brefCloudConfig = [])
     {
-        $this->commandInput = $commandInput;
+        $this->brefCloudConfig = $brefCloudConfig;
         
         parent::__construct($config);
     }
     
-    public function setRawOutput($rawOutput)
+    public function setRawOutput($rawOutput): self
     {
         $this->rawOutput = $rawOutput;
         
@@ -32,13 +35,15 @@ class BrefTinkerShell extends Shell
     /**
      * Gets the default command loop listeners.
      *
-     * @return array An array of Execution Loop Listener instances
+     * @return array<AbstractListener> An array of Execution Loop Listener instances
+     * @throws ExceptionInterface
+     * @throws HttpExceptionInterface
      */
     protected function getDefaultLoopListeners(): array
     {
         $listeners = parent::getDefaultLoopListeners();
 
-        $listeners[] = new BrefTinkerLoopListener($this->commandInput);
+        $listeners[] = new BrefTinkerLoopListener($this->brefCloudConfig);
 
         return $listeners;
     }
