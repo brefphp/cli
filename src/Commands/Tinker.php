@@ -17,7 +17,7 @@ class Tinker extends ApplicationCommand
 
         $this
             ->setName('tinker')
-            ->setDescription('Run a Tinker shell in the lambda');
+            ->setDescription('Run Laravel Tinker in AWS Lambda');
         parent::configure();
     }
     
