@@ -23,6 +23,11 @@ class Tinker extends ApplicationCommand
     
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        if (!$this->isLaravelApplication()) {
+            IO::writeln(Styles::red('This command can only be run in a Laravel application.'));
+            return 1;
+        }
+        
         IO::writeln([Styles::brefHeader(), '']);
         
         $brefCloudConfig = $this->parseStandardOptions($input);
@@ -47,5 +52,18 @@ class Tinker extends ApplicationCommand
             IO::writeln(Styles::red($e->getMessage()));
             return 1;
         }
+    }
+    
+    protected function isLaravelApplication(): bool
+    {
+        $composerContent = file_get_contents('composer.json');
+        if ($composerContent === false) {
+            return false;
+        }
+
+        $composerJson = json_decode($composerContent, true);
+        $requires = $composerJson['require'] ?? [];
+        $requiresDev = $composerJson['require-dev'] ?? [];
+        return isset($requires['laravel/framework']) || isset($requiresDev['laravel/framework']);
     }
 }
