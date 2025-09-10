@@ -2,12 +2,14 @@
 
 namespace Bref\Cli\Commands;
 
+use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\Styles;
 use Bref\Cli\Tinker\BrefTinkerShell;
 use Psy\Configuration;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Throwable;
 
 class Tinker extends ApplicationCommand
 {
@@ -30,25 +32,30 @@ class Tinker extends ApplicationCommand
         
         IO::writeln([Styles::brefHeader(), '']);
         
-        $brefCloudConfig = $this->parseStandardOptions($input);
+        [
+            'appName' => $appName,
+            'environmentName' => $environmentName,
+            'team' => $team,
+        ] = $this->parseStandardOptions($input);
 
         // Auto enable verbose to avoid verbose async listener in VerboseModeEnabler which will cause issue when executing multiple commands
         IO::enableVerbose();
         IO::writeln(sprintf(
-            "Starting Interactive Shell Session for [%s] in the [%s] environment",
-            Styles::green($brefCloudConfig['appName']),
-            Styles::red($brefCloudConfig['environmentName']),
+            "Starting interactive shell for [%s] in the [%s] environment",
+            Styles::bold($appName),
+            Styles::bold($environmentName),
         ));
+
+        $environment = (new BrefCloudClient)->findEnvironment($team, $appName, $environmentName);
+        $environmentId = $environment['id'];
         
         $shellConfig = Configuration::fromInput($input);
-        $shellOutput = $shellConfig->getOutput();
-        
-        $shell = new BrefTinkerShell($shellConfig, $brefCloudConfig);
-        $shell->setRawOutput($shellOutput);
+
+        $shell = new BrefTinkerShell($shellConfig, $environmentId, $shellConfig->getOutput());
 
         try {
             return $shell->run();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             IO::writeln(Styles::red($e->getMessage()));
             return 1;
         }
@@ -61,9 +68,10 @@ class Tinker extends ApplicationCommand
             return false;
         }
 
-        $composerJson = json_decode($composerContent, true);
-        $requires = $composerJson['require'] ?? [];
-        $requiresDev = $composerJson['require-dev'] ?? [];
+        /** @var array<string, mixed> $composerJson */
+        $composerJson = json_decode($composerContent, true, 512, JSON_THROW_ON_ERROR);
+        $requires = (array) ($composerJson['require'] ?? []);
+        $requiresDev = (array) ($composerJson['require-dev'] ?? []);
         return isset($requires['laravel/framework']) || isset($requiresDev['laravel/framework']);
     }
 }

@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Bref\Cli\Tinker;
 
@@ -12,44 +12,16 @@ use Psy\ExecutionLoop\AbstractListener;
 use Psy\Shell;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
+use Throwable;
 use function Amp\delay;
 
 class BrefTinkerLoopListener extends AbstractListener
 {
-    /**
-     * @var array{appName: string, environmentName: string, team: string}
-     */
-    protected array $brefConfig;
-
-    /**
-     * @var array{
-     *      id: int,
-     *      name: string,
-     *      region: string|null,
-     *      url: string|null,
-     *      outputs: array<string, string>,
-     *      app: array{id: int, name: string},
-     *  }
-     */
-    protected array $environment;
-
-    protected BrefCloudClient $brefCloudClient;
-
-    /**
-     * @param array<string, string> $brefConfig
-     * @throws ExceptionInterface
-     * @throws HttpExceptionInterface
-     */
-    public function __construct(array $brefConfig)
+    public function __construct(
+        private readonly int $environmentId,
+        private readonly BrefCloudClient $brefCloudClient,
+    )
     {
-        $this->brefConfig = $brefConfig;
-        [
-            'appName' => $appName,
-            'environmentName' => $environmentName,
-            'team' => $team,
-        ] = $brefConfig;
-        $this->brefCloudClient = new BrefCloudClient;
-        $this->environment = $this->brefCloudClient->findEnvironment($team, $appName, $environmentName);
     }
 
     public static function isSupported(): bool
@@ -64,7 +36,7 @@ class BrefTinkerLoopListener extends AbstractListener
      */
     public function onExecute(Shell $shell, string $code)
     {
-        if ($code == '\Psy\Exception\BreakException::exitShell();') {
+        if ($code === '\Psy\Exception\BreakException::exitShell();') {
             return $code;
         }
 
@@ -94,16 +66,15 @@ class BrefTinkerLoopListener extends AbstractListener
                 if (!empty($context)) {
                     // Extract _context into shell's scope variables for next code execution
                     // Return NoValue as output and return value were printed out
-                    return "extract(['_context' => '{$context}']); return new \Psy\CodeCleaner\NoReturnValue();";
-                } else {
-                    // Return NoValue as output and return value were printed out
-                    return "return new \Psy\CodeCleaner\NoReturnValue();";
+                    return "extract(['_context' => '$context']); return new \Psy\CodeCleaner\NoReturnValue();";
                 }
+                // Return NoValue as output and return value were printed out
+                return "return new \Psy\CodeCleaner\NoReturnValue();";
             }
 
             return ExecutionClosure::NOOP_INPUT;
-        } catch (\Throwable $_e) {
-            throw new BreakException($_e->getMessage());
+        } catch (Throwable $e) {
+            throw new BreakException($e->getMessage());
         }
     }
 
@@ -119,7 +90,7 @@ class BrefTinkerLoopListener extends AbstractListener
             '--execute=\"'.base64_encode($code).'\"',
             '--context=\"'.$context.'\"',
         ]);
-        $id = $this->brefCloudClient->startCommand($this->environment['id'], $command);
+        $id = $this->brefCloudClient->startCommand($this->environmentId, $command);
 
         // Timeout after 2 minutes and 10 seconds
         $timeout = 130;
