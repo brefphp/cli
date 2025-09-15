@@ -43,6 +43,7 @@ class Config
         if (empty($serverlessConfig['service']) || ! is_string($serverlessConfig['service']) || str_contains($serverlessConfig['service'], '$')) {
             throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
         }
+
         $team = (string) ($serverlessConfig['bref']['team'] ?? $serverlessConfig['custom']['bref']['team'] ?? '');
         if (empty($team)) {
             throw new Exception('To deploy a Serverless Framework project with Bref Cloud you must set the team name in the "bref.team" field in "serverless.yml"');
@@ -50,10 +51,21 @@ class Config
         if (str_contains($team, '$')) {
             throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
         }
+
+        // Retrieve the region if set in the provider block
+        if (isset($serverlessConfig['provider']['region']) && ! is_string($serverlessConfig['provider']['region'])) {
+            throw new Exception('The "provider.region" field in "serverless.yml" must be a string');
+        }
+        $region = $serverlessConfig['provider']['region'] ?? null;
+        if ($region && str_contains($region, '$')) {
+            throw new Exception('The "provider.region" field in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
+        }
+
         return [
             'name' => $serverlessConfig['service'],
             'team' => $overrideTeam ?: $team,
             'type' => 'serverless-framework',
+            'region' => $region,
             // Health checks are automatically enabled if the package is installed
             'healthChecks' => file_exists('vendor/bref/laravel-health-check/composer.json'),
         ];
