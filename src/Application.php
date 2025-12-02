@@ -7,6 +7,7 @@ use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\Styles;
 use ErrorException;
 use Exception;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpClient\Exception\ClientException;
@@ -20,15 +21,25 @@ class Application extends \Symfony\Component\Console\Application
 
         $this->turnWarningsIntoExceptions();
 
-        $this->add(new Commands\Login);
-        $this->add(new Commands\Deploy);
-        $this->add(new Commands\Info);
-        $this->add(new Commands\Remove);
-        $this->add(new Commands\Command);
-        $this->add(new Commands\Connect);
-        $this->add(new Commands\PreviousLogs);
-        $this->add(new Commands\Cloud);
-        $this->add(new Commands\Tinker);
+        $this->safeAddCommand(new Commands\Login);
+        $this->safeAddCommand(new Commands\Deploy);
+        $this->safeAddCommand(new Commands\Info);
+        $this->safeAddCommand(new Commands\Remove);
+        $this->safeAddCommand(new Commands\Command);
+        $this->safeAddCommand(new Commands\Connect);
+        $this->safeAddCommand(new Commands\PreviousLogs);
+        $this->safeAddCommand(new Commands\Cloud);
+        $this->safeAddCommand(new Commands\Tinker);
+    }
+
+    public function safeAddCommand(Command $command): ?Command
+    {
+        if (method_exists($this, 'addCommand')) {
+            // addCommand() exists since 7.4 and add() has been deprecated.
+            return $this->addCommand($command);
+        }
+
+        return $this->add($command);
     }
 
     public function doRun(InputInterface $input, OutputInterface $output): int
