@@ -73,8 +73,14 @@ class ServerlessFramework
                 if ($newLogs === '') {
                     return;
                 }
-                $brefCloud->pushDeploymentLogs($deploymentId, $newLogs);
-                $newLogs = '';
+                try {
+                    $brefCloud->pushDeploymentLogs($deploymentId, $newLogs);
+
+                    $newLogs = '';
+                } catch (\Throwable $e) {
+                    // Log pushing is best-effort, this is to avoid crashing the event loop
+                    IO::verbose('Failed to push deployment logs: ' . $e->getMessage());
+                }
             });
             $exitCode = $process->join();
             EventLoop::cancel($logPusherTimer);
