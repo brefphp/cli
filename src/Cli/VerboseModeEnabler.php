@@ -67,6 +67,11 @@ class VerboseModeEnabler
 
             // Reset stty so it behaves normally again
             self::setSttyMode($previousSttyMode);
+        })->catch(function (\Throwable $e) {
+            // Silence CancelledException (expected when stop() is called), but rethrow other exceptions
+            if (! $e instanceof \Amp\CancelledException) {
+                throw $e;
+            }
         });
     }
 
