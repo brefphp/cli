@@ -32,6 +32,7 @@ class Application extends \Symfony\Component\Console\Application
         $this->safeAddCommand(new Commands\PreviousLogs);
         $this->safeAddCommand(new Commands\Cloud);
         $this->safeAddCommand(new Commands\Tinker);
+        $this->safeAddCommand(new Commands\SecretCreate);
     }
 
     public function safeAddCommand(Command $command): ?Command

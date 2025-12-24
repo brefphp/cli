@@ -13,6 +13,26 @@ class BrefCloudClient
     private const STAGING_URL = 'https://staging.bref.cloud';
     private const LOCAL_URL = 'http://localhost:8000';
 
+    public const AWS_REGIONS = [
+        'us-east-1',
+        'us-east-2',
+        'us-west-1',
+        'us-west-2',
+        'eu-west-1',
+        'eu-west-2',
+        'eu-west-3',
+        'eu-central-1',
+        'eu-north-1',
+        'ap-northeast-1',
+        'ap-northeast-2',
+        'ap-northeast-3',
+        'ap-south-1',
+        'ap-southeast-1',
+        'ap-southeast-2',
+        'ca-central-1',
+        'sa-east-1',
+    ];
+
     public readonly string $url;
     private HttpClientInterface $client;
 
@@ -161,6 +181,7 @@ class BrefCloudClient
      *     url: string|null,
      *     outputs: array<string, string>,
      *     app: array{id: int, name: string},
+     *     aws_account_id: int|null,
      * }
      *
      * @throws HttpExceptionInterface
@@ -179,6 +200,7 @@ class BrefCloudClient
      *     url: string|null,
      *     outputs: array<string, string>,
      *     app: array{id: int, name: string},
+     *     aws_account_id: int|null,
      * }
      *
      * @throws HttpExceptionInterface
@@ -274,6 +296,26 @@ class BrefCloudClient
                 'name' => $accountName,
                 'role_arn' => $roleArn,
             ],
+        ]);
+    }
+
+    public function createSecret(int $teamId, string $appName, string $environmentName, string $name, string $value, ?int $awsAccountId = null, ?string $region = null): void
+    {
+        $body = [
+            'team_id' => $teamId,
+            'app_name' => $appName,
+            'environment_name' => $environmentName,
+            'name' => $name,
+            'value' => $value,
+        ];
+        if ($awsAccountId !== null) {
+            $body['aws_account_id'] = $awsAccountId;
+        }
+        if ($region !== null) {
+            $body['region'] = $region;
+        }
+        $this->client->request('POST', '/api/v1/secrets', [
+            'json' => $body,
         ]);
     }
 }
