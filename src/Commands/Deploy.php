@@ -216,14 +216,7 @@ class Deploy extends ApplicationCommand
     {
         $region = IO::ask(new ChoiceQuestion(
             'Please select the AWS region to deploy to:',
-            [
-                'us-east-1',
-                'us-east-2',
-                'eu-west-1',
-                'eu-west-2',
-                'eu-west-3',
-                // @TODO: regions
-            ],
+            BrefCloudClient::AWS_REGIONS,
         ));
 
         if (! is_string($region)) {
