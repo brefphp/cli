@@ -45,7 +45,7 @@ class BrefCloudClient
     }
 
     /**
-     * @return array{id: int, name: string}
+     * @return array{id: int, name: string, email: string}
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface
      */
@@ -238,7 +238,7 @@ class BrefCloudClient
     }
 
     /**
-     * @return list<array{id: int, name: string}>
+     * @return list<array{id: int, name: string, slug: string}>
      *
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface

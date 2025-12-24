@@ -23,6 +23,7 @@ class Application extends \Symfony\Component\Console\Application
 
         $this->safeAddCommand(new Commands\Login);
         $this->safeAddCommand(new Commands\Whoami);
+        $this->safeAddCommand(new Commands\Teams);
         $this->safeAddCommand(new Commands\Deploy);
         $this->safeAddCommand(new Commands\Info);
         $this->safeAddCommand(new Commands\Remove);
