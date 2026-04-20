@@ -68,6 +68,7 @@ class Config
             'region' => $region,
             // Health checks are automatically enabled if the package is installed
             'healthChecks' => file_exists('vendor/bref/laravel-health-check/composer.json'),
+            'isLaravel' => file_exists('vendor/bref/laravel-bridge/composer.json'),
         ];
     }
 
