@@ -15,7 +15,7 @@
         "php": "^8.1",
         "ext-zip": "*",
         "amphp/amp": "^3.0",
-        "amphp/file": "^3.2",
+        "amphp/file": "^3.2 || ^4.0",
         "amphp/http-client": "^5.3",
         "amphp/process": "^2.0",
         "aws/aws-sdk-php": "^3.319",
