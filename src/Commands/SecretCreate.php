@@ -31,12 +31,12 @@ class SecretCreate extends ApplicationCommand
     {
         // If --app and --team are provided, we can skip loading the config file
         if ($input->getOption('app') && $input->getOption('team')) {
-            /** @var string $appName */
             $appName = $input->getOption('app');
-            /** @var string $team */
             $team = $input->getOption('team');
-            /** @var string $environment */
             $environment = $input->getOption('env');
+            if (! is_string($appName) || ! is_string($team) || ! is_string($environment)) {
+                throw new Exception('Invalid app, team, or environment option');
+            }
         } else {
             [
                 'appName' => $appName,

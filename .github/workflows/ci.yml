@@ -7,8 +7,15 @@ on:
 
 jobs:
     phpstan:
-        name: PHPStan
+        name: PHPStan - PHP ${{ matrix.php }} ${{ matrix.dependency-version }}
         runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                php: [ '8.1', '8.2', '8.3', '8.4' ]
+                dependency-version: [ '' ]
+                include:
+                    -   php: '8.1'
+                        dependency-version: '--prefer-lowest'
         steps:
             - name: Checkout
               uses: actions/checkout@v6
@@ -16,7 +23,7 @@ jobs:
             - name: Setup PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: '8.3'
+                  php-version: ${{ matrix.php }}
                   tools: composer:v2
                   coverage: none
 
@@ -24,11 +31,11 @@ jobs:
               uses: actions/cache@v5
               with:
                   path: ~/.composer/cache
-                  key: php-composer-locked-${{ hashFiles('composer.lock') }}
-                  restore-keys: php-composer-locked-
+                  key: php-${{ matrix.php }}-composer-${{ matrix.dependency-version }}-${{ hashFiles('composer.json') }}
+                  restore-keys: php-${{ matrix.php }}-composer-${{ matrix.dependency-version }}-
 
             - name: Install dependencies
-              run: composer update --no-interaction --prefer-dist --no-progress
+              run: composer update ${{ matrix.dependency-version }} --no-interaction --prefer-dist --no-progress
 
             - name: PHPStan
               run: vendor/bin/phpstan analyse --no-progress

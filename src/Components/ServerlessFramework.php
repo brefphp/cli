@@ -244,11 +244,14 @@ class ServerlessFramework
     }
 
     /**
-     * @param array<mixed, mixed> $outputs
      * @return array<string, string>
      */
-    private function cleanupCfOutputs(array $outputs): array
+    private function cleanupCfOutputs(mixed $outputs): array
     {
+        if (! is_array($outputs)) {
+            return [];
+        }
+
         $result = [];
         foreach ($outputs as $name => $value) {
             if (! is_string($name) || ! is_string($value)) {

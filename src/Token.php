@@ -73,8 +73,12 @@ class Token
     private static function getConfigPath(): string
     {
         $home = $_SERVER['HOME'] ?? null;
-        if ($home === null && isset($_SERVER['HOMEDRIVE'], $_SERVER['HOMEPATH'])) {
-            $home = $_SERVER['HOMEDRIVE'] . $_SERVER['HOMEPATH'];
+        if ($home === null) {
+            $homeDrive = $_SERVER['HOMEDRIVE'] ?? null;
+            $homePath = $_SERVER['HOMEPATH'] ?? null;
+            if (is_string($homeDrive) && is_string($homePath)) {
+                $home = $homeDrive . $homePath;
+            }
         }
         if (! is_string($home) || $home === '') {
             throw new Exception('Cannot determine home directory');
