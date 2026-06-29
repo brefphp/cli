@@ -28,7 +28,7 @@ jobs:
                   restore-keys: php-composer-locked-
 
             - name: Install dependencies
-              run: composer install --no-interaction --prefer-dist --no-progress
+              run: composer update --no-interaction --prefer-dist --no-progress
 
             - name: PHPStan
               run: vendor/bin/phpstan analyse --no-progress
