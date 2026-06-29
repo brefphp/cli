@@ -39,13 +39,14 @@ class ServerlessFramework
         } else {
             $configFile = null;
         }
+        $oslsPackage = ($input->hasOption('osls4') && $input->getOption('osls4')) ? 'osls@4' : 'osls@3';
 
         $newLogs = '';
         $entireSlsOutput = '';
 
         try {
 
-            $process = $this->serverlessExec('deploy', $environment, $awsCredentials, $options);
+            $process = $this->serverlessExec($oslsPackage, 'deploy', $environment, $awsCredentials, $options);
             async(function () use ($process, &$newLogs, &$entireSlsOutput) {
                 while (($chunk = $process->getStdout()->read()) !== null) {
                     if (empty($chunk)) continue;
@@ -102,7 +103,7 @@ class ServerlessFramework
 
             $hasChanges = ! str_contains($newLogs, 'No changes to deploy. Deployment skipped.');
             if ($hasChanges) {
-                $outputs = $this->retrieveOutputs($environment, $awsCredentials, $configFile);
+                $outputs = $this->retrieveOutputs($oslsPackage, $environment, $awsCredentials, $configFile);
 
                 $region = $outputs['region'];
                 $stackName = $outputs['stack'];
@@ -128,7 +129,7 @@ class ServerlessFramework
      * @return array<string, string>
      * @throws Exception
      */
-    private function retrieveOutputs(string $environment, array $awsCredentials, ?string $configFile): array
+    private function retrieveOutputs(string $oslsPackage, string $environment, array $awsCredentials, ?string $configFile): array
     {
         $options = [];
         if ($configFile) {
@@ -136,7 +137,7 @@ class ServerlessFramework
             $options[] = $configFile;
         }
 
-        $process = $this->serverlessExec('info', $environment, $awsCredentials, $options);
+        $process = $this->serverlessExec($oslsPackage, 'info', $environment, $awsCredentials, $options);
         $process->join();
         $infoOutput = buffer($process->getStdout());
         // Remove non-ASCII characters
@@ -229,7 +230,7 @@ class ServerlessFramework
      * @param list<string> $options
      * @throws ProcessException
      */
-    private function serverlessExec(string $command, string $environment, array $awsCredentials, array $options): Process
+    private function serverlessExec(string $oslsPackage, string $command, string $environment, array $awsCredentials, array $options): Process
     {
         $env = [
             'SLS_DISABLE_AUTO_UPDATE' => '1',
@@ -240,7 +241,7 @@ class ServerlessFramework
         // Merge the current environment with the AWS credentials
         $env = array_merge(getenv(), $env);
 
-        $processArgs = ['npx', '--yes', 'osls', $command, '--verbose', '--stage', $environment, ...$options];
+        $processArgs = ['npx', '--yes', $oslsPackage, $command, '--verbose', '--stage', $environment, ...$options];
 
         IO::verbose('Running "' . implode(' ', $processArgs) . '"');
 

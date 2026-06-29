@@ -38,7 +38,8 @@ class Deploy extends ApplicationCommand
         $this
             ->setName('deploy')
             ->setDescription('Deploy the application')
-            ->addOption('force', null, InputOption::VALUE_NONE, 'Force the deployment');
+            ->addOption('force', null, InputOption::VALUE_NONE, 'Force the deployment')
+            ->addOption('osls4', null, InputOption::VALUE_NONE, 'Use osls@4 instead of osls@3');
         parent::configure();
     }
 
