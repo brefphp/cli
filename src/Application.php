@@ -5,7 +5,6 @@ namespace Bref\Cli;
 use Aws\Exception\CredentialsException;
 use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\Styles;
-use Composer\InstalledVersions;
 use ErrorException;
 use Exception;
 use Symfony\Component\Console\Command\Command;
@@ -39,25 +38,12 @@ class Application extends \Symfony\Component\Console\Application
     public function safeAddCommand(Command $command): ?Command
     {
         // addCommand() exists since Symfony Console 7.4; add() was removed in Symfony 8.
-        $usesAddCommand = self::usesAddCommand();
-
-        $method = $usesAddCommand ? 'addCommand' : 'add';
+        $method = method_exists(parent::class, 'addCommand') ? 'addCommand' : 'add';
 
         /** @var callable(Command): ?Command $register */
         $register = [$this, $method];
 
         return $register($command);
-    }
-
-    private static function usesAddCommand(): bool
-    {
-        if (! class_exists(InstalledVersions::class) || ! InstalledVersions::isInstalled('symfony/console')) {
-            throw new Exception('symfony/console is not installed');
-        }
-
-        $version = InstalledVersions::getVersion('symfony/console');
-
-        return $version !== null && version_compare($version, '7.4.0', '>=');
     }
 
     public function doRun(InputInterface $input, OutputInterface $output): int
