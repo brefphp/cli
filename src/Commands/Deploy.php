@@ -271,8 +271,12 @@ class Deploy extends ApplicationCommand
 
         $archivePaths = [];
         foreach ($packageUrls as $id => $url) {
-            $package = $config['packages'][$id];
-            $archivePaths[$id] = $this->packageArtifact($id, $package['path'], $package['patterns']);
+            $package = $config['packages'][$id] ?? null;
+            if (! is_array($package) || ! isset($package['path'], $package['patterns']) || ! is_string($package['path']) || ! is_array($package['patterns'])) {
+                throw new Exception("Invalid package configuration for '$id'");
+            }
+            $patterns = array_values(array_filter($package['patterns'], 'is_string'));
+            $archivePaths[$id] = $this->packageArtifact($id, $package['path'], $patterns);
         }
 
         IO::spin('uploading');

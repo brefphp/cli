@@ -32,7 +32,9 @@ class ApplicationCommand extends Command
         $environment = $input->getOption('env');
         /** @var string|null $configFileName */
         $configFileName = $input->getOption('config');
-        $config = Config::loadConfig($configFileName, $environment, $input->getOption('team'));
+        /** @var string|null $overrideTeam */
+        $overrideTeam = $input->getOption('team');
+        $config = Config::loadConfig($configFileName, $environment, $overrideTeam);
 
         return [
             'appName' => $config['name'],

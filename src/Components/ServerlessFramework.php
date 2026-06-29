@@ -32,8 +32,9 @@ class ServerlessFramework
         if ($input->hasOption('force')) {
             $options[] = '--force';
         }
-        if ($input->hasOption('config') && $input->getOption('config')) {
-            $configFile = (string) $input->getOption('config');
+        $configOption = $input->getOption('config');
+        if ($input->hasOption('config') && is_string($configOption) && $configOption !== '') {
+            $configFile = $configOption;
             $options[] = '--config';
             $options[] = $configFile;
         } else {
@@ -170,10 +171,11 @@ class ServerlessFramework
                 $url = substr($url, strlen('ANY - '));
             }
             if (!$url && isset($deployOutputs['endpoints']) && is_array($deployOutputs['endpoints'])) {
-                $url = reset($deployOutputs['endpoints']);
+                $firstEndpoint = reset($deployOutputs['endpoints']);
+                $url = is_string($firstEndpoint) ? $firstEndpoint : null;
             }
             // Special case for the `server-side-website` construct
-            if (isset($deployOutputs['website']['url']) && is_string($deployOutputs['website']['url'])) {
+            if (isset($deployOutputs['website']) && is_array($deployOutputs['website']) && isset($deployOutputs['website']['url']) && is_string($deployOutputs['website']['url'])) {
                 $url = $deployOutputs['website']['url'];
             }
             if (! isset($deployOutputs['Stack Outputs']) || ! is_array($deployOutputs['Stack Outputs'])) {
@@ -203,14 +205,7 @@ class ServerlessFramework
                     $stackOutputs = $this->cleanupCfOutputs($stackOutputs);
 
                     $stackName = $stackMatches[1];
-                    if (! is_string($stackName)) {
-                        throw new Exception('Invalid stack name in the "serverless info" output');
-                    }
-
                     $region = $regionMatches[1];
-                    if (! is_string($region)) {
-                        throw new Exception('Invalid region in the "serverless info" output');
-                    }
 
                     return array_merge([
                         'stack' => $stackName,
@@ -249,17 +244,23 @@ class ServerlessFramework
     }
 
     /**
-     * @param array<string, string> $outputs
+     * @param array<mixed, mixed> $outputs
      * @return array<string, string>
      */
     private function cleanupCfOutputs(array $outputs): array
     {
-        return array_filter($outputs, function (string $name): bool {
-            if ($name === 'ServerlessDeploymentBucketName') return false;
-            if ($name === 'HttpApiId') return false;
-            if (str_contains($name, 'LambdaFunctionQualifiedArn')) return false;
-            return true;
-        }, ARRAY_FILTER_USE_KEY);
+        $result = [];
+        foreach ($outputs as $name => $value) {
+            if (! is_string($name) || ! is_string($value)) {
+                continue;
+            }
+            if ($name === 'ServerlessDeploymentBucketName') continue;
+            if ($name === 'HttpApiId') continue;
+            if (str_contains($name, 'LambdaFunctionQualifiedArn')) continue;
+            $result[$name] = $value;
+        }
+
+        return $result;
     }
 
     private function findErrorMessageInServerlessOutput(string $entireSlsOutput): string

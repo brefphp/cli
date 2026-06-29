@@ -44,7 +44,16 @@ class Config
             throw new Exception('The "service" name in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
         }
 
-        $team = (string) ($serverlessConfig['bref']['team'] ?? $serverlessConfig['custom']['bref']['team'] ?? '');
+        $brefConfig = $serverlessConfig['bref'] ?? null;
+        $customConfig = $serverlessConfig['custom'] ?? null;
+        $customBrefConfig = is_array($customConfig) ? ($customConfig['bref'] ?? null) : null;
+
+        $team = '';
+        if (is_array($brefConfig) && isset($brefConfig['team']) && is_string($brefConfig['team'])) {
+            $team = $brefConfig['team'];
+        } elseif (is_array($customBrefConfig) && isset($customBrefConfig['team']) && is_string($customBrefConfig['team'])) {
+            $team = $customBrefConfig['team'];
+        }
         if (empty($team)) {
             throw new Exception('To deploy a Serverless Framework project with Bref Cloud you must set the team name in the "bref.team" field in "serverless.yml"');
         }
@@ -53,10 +62,14 @@ class Config
         }
 
         // Retrieve the region if set in the provider block
-        if (isset($serverlessConfig['provider']['region']) && ! is_string($serverlessConfig['provider']['region'])) {
-            throw new Exception('The "provider.region" field in "serverless.yml" must be a string');
+        $provider = $serverlessConfig['provider'] ?? null;
+        $region = null;
+        if (is_array($provider) && isset($provider['region'])) {
+            if (! is_string($provider['region'])) {
+                throw new Exception('The "provider.region" field in "serverless.yml" must be a string');
+            }
+            $region = $provider['region'];
         }
-        $region = $serverlessConfig['provider']['region'] ?? null;
         if ($region && str_contains($region, '$')) {
             throw new Exception('The "provider.region" field in "serverless.yml" cannot contain variables, it is not supported by Bref Cloud');
         }
@@ -78,6 +91,9 @@ class Config
     private static function loadBrefConfig(string $fileName, ?string $environment, ?string $overrideTeam): array
     {
         $absolute = realpath($fileName);
+        if ($absolute === false) {
+            throw new Exception("Cannot find config file: $fileName");
+        }
         $file = basename($absolute);
         $dir = dirname($absolute);
 
@@ -109,13 +125,24 @@ class Config
         // At this point we only support deploying 1 app at a time
         // So we'll merge the app configuration at the root
         if (isset($config['apps'])) {
+            if (! is_array($config['apps']) || ! isset($config['apps'][0]) || ! is_array($config['apps'][0])) {
+                throw new Exception('The "bref.php" file must define at least one app in the "apps" array');
+            }
             $config = [
                 ...$config['apps'][0],
-                'packages' => $config['packages'],
-                'team' => $overrideTeam ?: $config['team'],
+                'packages' => $config['packages'] ?? null,
+                'team' => $overrideTeam ?: ($config['team'] ?? ''),
             ];
         }
 
+        if (! isset($config['name'], $config['team'], $config['type'])
+            || ! is_string($config['name'])
+            || ! is_string($config['team'])
+            || ! is_string($config['type'])) {
+            throw new Exception('The "bref.php" file must return a configuration with "name", "team", and "type" fields');
+        }
+
+        /** @var array{name: string, team: string, type: string} $config */
         return $config;
     }
 

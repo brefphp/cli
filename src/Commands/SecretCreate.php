@@ -31,8 +31,11 @@ class SecretCreate extends ApplicationCommand
     {
         // If --app and --team are provided, we can skip loading the config file
         if ($input->getOption('app') && $input->getOption('team')) {
+            /** @var string $appName */
             $appName = $input->getOption('app');
+            /** @var string $team */
             $team = $input->getOption('team');
+            /** @var string $environment */
             $environment = $input->getOption('env');
         } else {
             [
@@ -43,7 +46,11 @@ class SecretCreate extends ApplicationCommand
 
             // Override app name if --app option provided
             if ($input->getOption('app')) {
-                $appName = $input->getOption('app');
+                $appOption = $input->getOption('app');
+                if (! is_string($appOption)) {
+                    throw new Exception('Invalid app name');
+                }
+                $appName = $appOption;
             }
         }
 
@@ -51,13 +58,16 @@ class SecretCreate extends ApplicationCommand
         $name = $input->getArgument('name');
         if (empty($name)) {
             $question = new Question('Secret name: ');
-            $question->setValidator(function (?string $value): string {
-                if (empty($value)) {
+            $question->setValidator(function (mixed $value): string {
+                if (! is_string($value) || $value === '') {
                     throw new Exception('Secret name cannot be empty');
                 }
                 return $value;
             });
             $name = IO::ask($question);
+        }
+        if (! is_string($name)) {
+            throw new Exception('Secret name cannot be empty');
         }
 
         // Get secret value (from argument or prompt)
@@ -66,6 +76,9 @@ class SecretCreate extends ApplicationCommand
             $question = new Question('Secret value: ');
             $question->setHidden(true)->setHiddenFallback(false);
             $value = IO::ask($question);
+        }
+        if (! is_string($value)) {
+            throw new Exception('Secret value cannot be empty');
         }
 
         $brefCloud = new BrefCloudClient;

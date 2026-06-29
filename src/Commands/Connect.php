@@ -84,7 +84,10 @@ class Connect extends Command
             ]);
 
             $question = new Question('Display name: ');
-            $question->setValidator(function (string $answer) use ($existingAccounts): string {
+            $question->setValidator(function (mixed $answer) use ($existingAccounts): string {
+                if (! is_string($answer) || $answer === '') {
+                    throw new Exception('Account name cannot be empty');
+                }
                 // Check if the name is already taken
                 foreach ($existingAccounts as $account) {
                     if ($account['name'] === $answer) {

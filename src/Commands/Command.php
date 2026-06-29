@@ -96,7 +96,8 @@ class Command extends ApplicationCommand
                 $errorDetails['errorMessage'],
             ]);
             if (isset($errorDetails['stackTrace']) && is_array($errorDetails['stackTrace'])) {
-                IO::verbose($errorDetails['stackTrace']);
+                $stackTrace = array_values(array_filter($errorDetails['stackTrace'], 'is_string'));
+                IO::verbose($stackTrace);
             }
         } catch (JsonException) {
             IO::writeln(Styles::red($output));

@@ -37,11 +37,13 @@ class Application extends \Symfony\Component\Console\Application
 
     public function safeAddCommand(Command $command): ?Command
     {
+        // addCommand() exists since Symfony Console 7.4; add() was removed in later versions.
+        /** @phpstan-ignore function.alreadyNarrowedType */
         if (method_exists($this, 'addCommand')) {
-            // addCommand() exists since 7.4 and add() has been deprecated.
             return $this->addCommand($command);
         }
 
+        /** @phpstan-ignore method.notFound */
         return $this->add($command);
     }
 

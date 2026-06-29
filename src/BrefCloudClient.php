@@ -71,7 +71,10 @@ class BrefCloudClient
      */
     public function getUserInfo(): array
     {
-        return $this->client->request('GET', '/api/v1/user')->toArray();
+        /** @var array{id: int, name: string, email: string} $result */
+        $result = $this->client->request('GET', '/api/v1/user')->toArray();
+
+        return $result;
     }
 
     /**
@@ -102,9 +105,12 @@ class BrefCloudClient
         if ($awsAccountName) {
             $body['aws_account_name'] = $awsAccountName;
         }
-        return $this->client->request('POST', '/api/v1/deployments', [
+        /** @var array{deploymentId: int, message: string, url: string, credentials?: array{accessKeyId: string, secretAccessKey: string, sessionToken: string}, packageUrls?: array<string, string>} $result */
+        $result = $this->client->request('POST', '/api/v1/deployments', [
             'json' => $body,
         ])->toArray();
+
+        return $result;
     }
 
     public function startDeployment(int $deploymentId): void
@@ -129,7 +135,10 @@ class BrefCloudClient
      */
     public function getDeployment(int $deploymentId): array
     {
-        return $this->client->request('GET', "/api/v1/deployments/$deploymentId")->toArray();
+        /** @var array{deploymentId: int, status: string, message: string, error_message: string|null, url: string, app_url: string|null, logs: list<array{line: string, timestamp: int}>, outputs?: array<string, string>} $result */
+        $result = $this->client->request('GET', "/api/v1/deployments/$deploymentId")->toArray();
+
+        return $result;
     }
 
     public function pushDeploymentLogs(int $deploymentId, string $newLogs): void
@@ -189,7 +198,10 @@ class BrefCloudClient
      */
     public function getEnvironment(int $id): array
     {
-        return $this->client->request('GET', '/api/v1/environments/' . $id)->toArray();
+        /** @var array{id: int, name: string, region: string|null, url: string|null, outputs: array<string, string>, app: array{id: int, name: string}, aws_account_id: int|null} $result */
+        $result = $this->client->request('GET', '/api/v1/environments/' . $id)->toArray();
+
+        return $result;
     }
 
     /**
@@ -208,11 +220,14 @@ class BrefCloudClient
      */
     public function findEnvironment(string $teamSlug, string $appName, string $environment): array
     {
-        return $this->client->request('GET', '/api/v1/environments/find?' . http_build_query([
+        /** @var array{id: int, name: string, region: string|null, url: string|null, outputs: array<string, string>, app: array{id: int, name: string}, aws_account_id: int|null} $result */
+        $result = $this->client->request('GET', '/api/v1/environments/find?' . http_build_query([
             'teamSlug' => $teamSlug,
             'appName' => $appName,
             'environmentName' => $environment,
         ]))->toArray();
+
+        return $result;
     }
 
     public function removeEnvironment(int $environmentId): void
@@ -245,7 +260,10 @@ class BrefCloudClient
      */
     public function getCommand(int $id): array
     {
-        return $this->client->request('GET', "/api/v1/commands/$id")->toArray();
+        /** @var array{status: 'not_started'|'started'|'success'|'failed', output: string} $result */
+        $result = $this->client->request('GET', "/api/v1/commands/$id")->toArray();
+
+        return $result;
     }
 
     /**
@@ -256,7 +274,10 @@ class BrefCloudClient
      */
     public function listAwsAccounts(): array
     {
-        return $this->client->request('GET', '/api/v1/aws-accounts')->toArray();
+        /** @var list<array{id: int, name: string, role_arn: string, team_id: int}> $result */
+        $result = $this->client->request('GET', '/api/v1/aws-accounts')->toArray();
+
+        return $result;
     }
 
     /**
@@ -267,7 +288,10 @@ class BrefCloudClient
      */
     public function listTeams(): array
     {
-        return $this->client->request('GET', '/api/v1/teams')->toArray();
+        /** @var list<array{id: int, name: string, slug: string}> $result */
+        $result = $this->client->request('GET', '/api/v1/teams')->toArray();
+
+        return $result;
     }
 
     /**
@@ -285,7 +309,10 @@ class BrefCloudClient
      */
     public function prepareConnectAwsAccount(int $teamId): array
     {
-        return $this->client->request('GET', '/api/v1/aws-accounts/connect?team_id=' . $teamId)->toArray();
+        /** @var array{region: string, template_url: string, stack_name: string, bref_cloud_account_id: string, unique_external_id: string, role_name: string|null} $result */
+        $result = $this->client->request('GET', '/api/v1/aws-accounts/connect?team_id=' . $teamId)->toArray();
+
+        return $result;
     }
 
     public function addAwsAccount(mixed $teamId, string $accountName, string $roleArn): void
