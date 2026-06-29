@@ -40,7 +40,7 @@ class ServerlessFramework
         } else {
             $configFile = null;
         }
-        $oslsPackage = ($input->hasOption('osls4') && $input->getOption('osls4')) ? 'osls@4' : 'osls@3';
+        $oslsPackage = ($input->hasOption('osls4') && $input->getOption('osls4')) ? 'osls@beta' : 'osls@3';
 
         $newLogs = '';
         $entireSlsOutput = '';
