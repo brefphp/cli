@@ -11,6 +11,7 @@ class BrefCloudClient
 {
     private const PRODUCTION_URL = 'https://bref.cloud';
     private const STAGING_URL = 'https://staging.bref.cloud';
+    private const SANDBOX_URL = 'https://sandbox.bref.cloud';
     private const LOCAL_URL = 'http://localhost:8000';
 
     public const AWS_REGIONS = [
@@ -59,6 +60,8 @@ class BrefCloudClient
         $env = $_SERVER['BREF_ENV'] ?? 'prod';
         return match($env) {
             'staging' => self::STAGING_URL,
+            // Throwaway environment the Bref team uses to test Bref Cloud itself
+            'sandbox' => self::SANDBOX_URL,
             'local' => self::LOCAL_URL,
             default => self::PRODUCTION_URL,
         };
