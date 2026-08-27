@@ -269,6 +269,8 @@ class Deploy extends ApplicationCommand
 
         IO::spin('packaging');
 
+        $this->cleanupLegacyPackages();
+
         $archivePaths = [];
         foreach ($packageUrls as $id => $url) {
             $package = $config['packages'][$id] ?? null;
@@ -290,26 +292,32 @@ class Deploy extends ApplicationCommand
             ->intercept(new SetRequestTimeout(10, 10, $timeout, 60))
             ->build();
 
-        $promises = [];
-        foreach ($archivePaths as $id => $archivePath) {
-            $url = $packageUrls[$id];
-
-            IO::verbose(sprintf(
-                'Uploading %s (%d MB)',
-                $archivePath,
-                round(((float) filesize($archivePath)) / 1024. / 1024., 1)
-            ));
-
-            $request = new Request($url, 'PUT', StreamedContent::fromFile($archivePath));
-            $promises[] = async(fn() => $client->request($request));
-        }
-
         try {
-            await($promises);
-        } catch (TimeoutException) {
-            throw new Exception("Timeout while uploading packages after $timeout seconds. This is likely due to a slow network connection");
-        } catch (Exception $e) {
-            throw new Exception('Error while uploading packages: ' . $e->getMessage(), 0, $e);
+            $promises = [];
+            foreach ($archivePaths as $id => $archivePath) {
+                $url = $packageUrls[$id];
+
+                IO::verbose(sprintf(
+                    'Uploading %s (%d MB)',
+                    $archivePath,
+                    round(((float) filesize($archivePath)) / 1024. / 1024., 1)
+                ));
+
+                $request = new Request($url, 'PUT', StreamedContent::fromFile($archivePath));
+                $promises[] = async(fn() => $client->request($request));
+            }
+
+            try {
+                await($promises);
+            } catch (TimeoutException) {
+                throw new Exception("Timeout while uploading packages after $timeout seconds. This is likely due to a slow network connection");
+            } catch (Exception $e) {
+                throw new Exception('Error while uploading packages: ' . $e->getMessage(), 0, $e);
+            }
+        } finally {
+            foreach ($archivePaths as $archivePath) {
+                @unlink($archivePath);
+            }
         }
     }
 
@@ -318,10 +326,6 @@ class Deploy extends ApplicationCommand
      */
     private function packageArtifact(string $id, string $path, array $patterns): string
     {
-        if (! is_dir('.bref') && ! mkdir('.bref') && ! is_dir('.bref')) {
-            throw new Exception(sprintf('Directory "%s" could not be created', '.bref'));
-        }
-
         // Turn the package patterns into regexes
         $patternRegexes = [];
         foreach ($patterns as $pattern) {
@@ -335,7 +339,13 @@ class Deploy extends ApplicationCommand
             $patternRegexes[$regex] = $include;
         }
 
-        $archivePath = ".bref/package-$id.zip";
+        // The archive is written outside the project so that it cannot end up inside another
+        // deployment package (e.g. a `serverless.yml` deployment of the same project), and it
+        // is deleted after the upload
+        $archivePath = tempnam(sys_get_temp_dir(), "bref-package-$id-");
+        if ($archivePath === false) {
+            throw new Exception('Could not create a temporary file to package the application');
+        }
 
         $zip = new ZipArchive;
         $zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
@@ -344,6 +354,24 @@ class Deploy extends ApplicationCommand
         $zip->close();
 
         return $archivePath;
+    }
+
+    /**
+     * Older CLI versions wrote deployment packages to `.bref/` in the project and never
+     * removed them, accumulating tens of MB per deployment (see CLOUD-56).
+     */
+    private function cleanupLegacyPackages(): void
+    {
+        $legacyPackages = glob('.bref/package-*.zip');
+        if (empty($legacyPackages)) return;
+
+        IO::verbose('Removing deployment packages left in `.bref/` by previous versions of the CLI');
+        foreach ($legacyPackages as $legacyPackage) {
+            @unlink($legacyPackage);
+        }
+        // Remove the directory as well, unless it contains anything else (rmdir refuses
+        // to remove a non-empty directory)
+        @rmdir('.bref');
     }
 
     /**
