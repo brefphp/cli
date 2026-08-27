@@ -269,8 +269,6 @@ class Deploy extends ApplicationCommand
 
         IO::spin('packaging');
 
-        $this->cleanupLegacyPackages();
-
         $archivePaths = [];
         foreach ($packageUrls as $id => $url) {
             $package = $config['packages'][$id] ?? null;
@@ -354,24 +352,6 @@ class Deploy extends ApplicationCommand
         $zip->close();
 
         return $archivePath;
-    }
-
-    /**
-     * Older CLI versions wrote deployment packages to `.bref/` in the project and never
-     * removed them, accumulating tens of MB per deployment (see CLOUD-56).
-     */
-    private function cleanupLegacyPackages(): void
-    {
-        $legacyPackages = glob('.bref/package-*.zip');
-        if (empty($legacyPackages)) return;
-
-        IO::verbose('Removing deployment packages left in `.bref/` by previous versions of the CLI');
-        foreach ($legacyPackages as $legacyPackage) {
-            @unlink($legacyPackage);
-        }
-        // Remove the directory as well, unless it contains anything else (rmdir refuses
-        // to remove a non-empty directory)
-        @rmdir('.bref');
     }
 
     /**
