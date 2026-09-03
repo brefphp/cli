@@ -76,47 +76,24 @@ class Deploy extends ApplicationCommand
         try {
             $deployment = $brefCloud->createDeployment($environment, $config, $gitRef, $gitMessage);
         } catch (ClientExceptionInterface $e) {
-            // 4xx error
-            $response = $e->getResponse();
-            if ($response->getStatusCode() === 400) {
-                $body = $response->toArray(false);
-                // Errors that the user fixes in the configuration: show the message from Bref Cloud
-                if (in_array($body['code'] ?? '', ['no_aws_account', 'region_mismatch', 'region_not_supported'], true)) {
-                    IO::spinError();
-                    throw new Exception($body['message']);
-                }
-                if ($body['selectAwsAccount'] ?? false) {
-                    IO::spinClear();
-                    IO::writeln(['', "Environment $appName/$environment does not exist and will be created."]);
-                    $awsAccountName = $this->selectAwsAccount($body['selectAwsAccount']);
-                    IO::spin('deploying');
+            $body = $this->badRequestBody($e);
+            // Errors that the user fixes in the configuration: show the message from Bref Cloud
+            if (in_array($body['code'] ?? '', ['no_aws_account', 'region_mismatch', 'region_not_supported'], true)) {
+                IO::spinError();
+                throw new Exception($body['message'] ?? $e->getMessage());
+            }
+            if (! ($body['selectAwsAccount'] ?? false)) {
+                IO::spinError();
+                throw $e;
+            }
 
-                    // @TODO: DEFINITELY do not like this :|
-                    try {
-                        $deployment = $brefCloud->createDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName);
-                    } catch (ClientExceptionInterface $e) {
-                        $response = $e->getResponse();
-                        if ($response->getStatusCode() === 400) {
-                            $body = $response->toArray(false);
-                            if (($body['code'] ?? '') === 'no_region_for_environment') {
-                                $region = $this->selectAwsRegion();
-                                IO::spin('deploying');
-                                $config['region'] = $region;
-                                $deployment = $brefCloud->createDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName);
-                            } else {
-                                IO::spinError();
-                                throw $e;
-                            }
-                        } else {
-                            IO::spinError();
-                            throw $e;
-                        }
-                    }
-                } else {
-                    IO::spinError();
-                    throw $e;
-                }
-            } else {
+            IO::spinClear();
+            IO::writeln(['', "Environment $appName/$environment does not exist and will be created."]);
+            $awsAccountName = $this->selectAwsAccount($body['selectAwsAccount']);
+            IO::spin('deploying');
+            try {
+                $deployment = $brefCloud->createDeployment($environment, $config, $gitRef, $gitMessage, $awsAccountName);
+            } catch (ClientExceptionInterface $e) {
                 IO::spinError();
                 throw $e;
             }
@@ -213,19 +190,19 @@ class Deploy extends ApplicationCommand
         return $awsAccountName;
     }
 
-
-    private function selectAwsRegion(): string
+    /**
+     * The JSON body of a 400 response, empty for any other error.
+     *
+     * @return array{ code?: string, message?: string, selectAwsAccount?: array{ name: string }[] }
+     */
+    private function badRequestBody(ClientExceptionInterface $e): array
     {
-        $region = IO::ask(new ChoiceQuestion(
-            'Please select the AWS region to deploy to:',
-            BrefCloudClient::AWS_REGIONS,
-        ));
-
-        if (! is_string($region)) {
-            throw new Exception('No AWS Region selected');
+        $response = $e->getResponse();
+        if ($response->getStatusCode() !== 400) {
+            return [];
         }
-
-        return $region;
+        /** @var array{ code?: string, message?: string, selectAwsAccount?: array{ name: string }[] } */
+        return $response->toArray(false);
     }
 
     /**
