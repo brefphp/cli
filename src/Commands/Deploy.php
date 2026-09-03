@@ -80,7 +80,8 @@ class Deploy extends ApplicationCommand
             $response = $e->getResponse();
             if ($response->getStatusCode() === 400) {
                 $body = $response->toArray(false);
-                if (($body['code'] ?? '') === 'no_aws_account') {
+                // Errors that the user fixes in the configuration: show the message from Bref Cloud
+                if (in_array($body['code'] ?? '', ['no_aws_account', 'region_mismatch', 'region_not_supported'], true)) {
                     IO::spinError();
                     throw new Exception($body['message']);
                 }
