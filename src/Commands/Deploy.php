@@ -22,6 +22,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
 use Throwable;
 use ZipArchive;
 use function Amp\async;
@@ -191,7 +192,7 @@ class Deploy extends ApplicationCommand
     }
 
     /**
-     * The JSON body of a 400 response, empty for any other error.
+     * The JSON body of a 400 response, empty for any other error or a body that is not JSON.
      *
      * @return array{ code?: string, message?: string, selectAwsAccount?: array{ name: string }[] }
      */
@@ -201,8 +202,12 @@ class Deploy extends ApplicationCommand
         if ($response->getStatusCode() !== 400) {
             return [];
         }
-        /** @var array{ code?: string, message?: string, selectAwsAccount?: array{ name: string }[] } */
-        return $response->toArray(false);
+        try {
+            /** @var array{ code?: string, message?: string, selectAwsAccount?: array{ name: string }[] } */
+            return $response->toArray(false);
+        } catch (DecodingExceptionInterface) {
+            return [];
+        }
     }
 
     /**
