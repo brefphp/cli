@@ -6,15 +6,15 @@ on:
     pull_request:
 
 jobs:
-    phpstan:
-        name: PHPStan - PHP ${{ matrix.php }} ${{ matrix.dependency-version }}
+    tests:
+        name: Tests - PHP ${{ matrix.php }} ${{ matrix.dependency-version }}
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                php: [ '8.1', '8.2', '8.3', '8.4' ]
+                php: [ '8.2', '8.3', '8.4' ]
                 dependency-version: [ '' ]
                 include:
-                    -   php: '8.1'
+                    -   php: '8.2'
                         dependency-version: '--prefer-lowest'
         steps:
             - name: Checkout
@@ -39,3 +39,6 @@ jobs:
 
             - name: PHPStan
               run: vendor/bin/phpstan analyse --no-progress
+
+            - name: PHPUnit
+              run: vendor/bin/phpunit

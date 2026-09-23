@@ -29,30 +29,11 @@ class SecretCreate extends ApplicationCommand
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // If --app and --team are provided, we can skip loading the config file
-        if ($input->getOption('app') && $input->getOption('team')) {
-            $appName = $input->getOption('app');
-            $team = $input->getOption('team');
-            $environment = $input->getOption('env');
-            if (! is_string($appName) || ! is_string($team) || ! is_string($environment)) {
-                throw new Exception('Invalid app, team, or environment option');
-            }
-        } else {
-            [
-                'appName' => $appName,
-                'environmentName' => $environment,
-                'team' => $team,
-            ] = $this->parseStandardOptions($input);
-
-            // Override app name if --app option provided
-            if ($input->getOption('app')) {
-                $appOption = $input->getOption('app');
-                if (! is_string($appOption)) {
-                    throw new Exception('Invalid app name');
-                }
-                $appName = $appOption;
-            }
-        }
+        [
+            'appName' => $appName,
+            'environmentName' => $environment,
+            'team' => $team,
+        ] = $this->parseEnvironmentOptions($input);
 
         // Get secret name (from argument or prompt)
         $name = $input->getArgument('name');

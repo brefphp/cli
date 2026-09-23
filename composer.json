@@ -11,14 +11,20 @@
             "Bref\\Cli\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Bref\\Cli\\Test\\": "tests/"
+        }
+    },
     "require": {
-        "php": "^8.1",
+        "php": "^8.2",
         "ext-zip": "*",
         "amphp/amp": "^3.0",
         "amphp/file": "^3.2 || ^4.0",
         "amphp/http-client": "^5.3",
         "amphp/process": "^2.0",
         "aws/aws-sdk-php": "^3.319",
+        "laravel/agent-detector": "^2.0.1",
         "psy/psysh": "^0.12.0",
         "revolt/event-loop": "^1.0",
         "symfony/console": "^5.2 || ^6.2 || ^7 || ^8",
@@ -28,7 +34,8 @@
         "symfony/yaml": "^5.2 || ^6.2 || ^7 || ^8"
     },
     "require-dev": {
-        "phpstan/phpstan": "^2"
+        "phpstan/phpstan": "^2",
+        "phpunit/phpunit": "^11.5"
     },
     "config": {
         "sort-packages": true

@@ -2,11 +2,27 @@
 
 namespace Bref\Cli;
 
+use Bref\Cli\Cli\LogRenderer;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
+/**
+ * @phpstan-import-type LogRecord from LogRenderer
+ * @phpstan-type Deployment array{
+ *     id: int,
+ *     status: string,
+ *     message: string,
+ *     error_message: string|null,
+ *     git_ref: string|null,
+ *     git_message: string|null,
+ *     author: string|null,
+ *     created_at: string|null,
+ *     finished_at: string|null,
+ *     url: string,
+ * }
+ */
 class BrefCloudClient
 {
     private const PRODUCTION_URL = 'https://bref.cloud';
@@ -37,9 +53,16 @@ class BrefCloudClient
     public readonly string $url;
     private HttpClientInterface $client;
 
-    public function __construct(?string $token = null)
+    /**
+     * @param HttpClientInterface|null $client Replaces the HTTP client (and the token), for tests.
+     */
+    public function __construct(?string $token = null, ?HttpClientInterface $client = null)
     {
         $this->url = self::getUrl();
+        if ($client) {
+            $this->client = $client;
+            return;
+        }
         if ($token === null) {
             $token = Token::getToken($this->url);
         }
@@ -122,7 +145,6 @@ class BrefCloudClient
 
     /**
      * @return array{
-     *     deploymentId: int,
      *     status: string,
      *     message: string,
      *     error_message: string|null,
@@ -130,15 +152,60 @@ class BrefCloudClient
      *     app_url: string|null,
      *     logs: list<array{line: string, timestamp: int}>,
      *     outputs?: array<string, string>,
+     *     id?: int,
+     *     git_ref?: string|null,
+     *     git_message?: string|null,
+     *     author?: string|null,
+     *     created_at?: string|null,
+     *     finished_at?: string|null,
+     *     environment?: array{id: int, name: string},
+     *     app?: array{id: int, name: string},
      * }
+     * The keys that are optional were added to Bref Cloud later.
      *
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface
      */
     public function getDeployment(int $deploymentId): array
     {
-        /** @var array{deploymentId: int, status: string, message: string, error_message: string|null, url: string, app_url: string|null, logs: list<array{line: string, timestamp: int}>, outputs?: array<string, string>} $result */
+        /** @var array{status: string, message: string, error_message: string|null, url: string, app_url: string|null, logs: list<array{line: string, timestamp: int}>, outputs?: array<string, string>, id?: int, git_ref?: string|null, git_message?: string|null, author?: string|null, created_at?: string|null, finished_at?: string|null, environment?: array{id: int, name: string}, app?: array{id: int, name: string}} $result */
         $result = $this->client->request('GET', "/api/v1/deployments/$deploymentId")->toArray();
+
+        return $result;
+    }
+
+    /**
+     * @return list<Deployment> The most recent first.
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function listDeployments(int $environmentId, int $limit): array
+    {
+        /** @var list<Deployment> $result */
+        $result = $this->client->request('GET', "/api/v1/environments/$environmentId/deployments", [
+            'query' => ['limit' => $limit],
+        ])->toArray();
+
+        return $result;
+    }
+
+    /**
+     * @param array{since?: int, until?: int, search?: string, regex?: bool, functions?: list<string>, limit?: int, all?: bool, full?: bool} $query
+     * @return array{from: string, to: string, limit: int, has_more: bool, records: list<LogRecord>}
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function getLogs(int $environmentId, array $query): array
+    {
+        /** @var array{from: string, to: string, limit: int, has_more: bool, records: list<LogRecord>} $result */
+        $result = $this->client->request('GET', "/api/v1/environments/$environmentId/logs", [
+            // Booleans are sent as 0/1
+            'query' => array_map(fn($value) => is_bool($value) ? (int) $value : $value, $query),
+            // Searching logs takes several seconds, and up to Bref Cloud's own timeout
+            'timeout' => 40,
+        ])->toArray();
 
         return $result;
     }
