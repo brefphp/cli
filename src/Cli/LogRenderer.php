@@ -6,7 +6,7 @@ namespace Bref\Cli\Cli;
  * Renders the log records returned by Bref Cloud, which already parsed and truncated them.
  *
  * One line per record: `2026-09-23 10:12:51.863 web 45f01a ERROR message {"context"}`,
- * then the exception on an indented line, if any.
+ * then the exception and its causes on indented lines, if any.
  *
  * @phpstan-type LogException array{class: string, message: string, file: string, frames: int, trace?: list<string>, previous?: array<string, mixed>}
  * @phpstan-type LogRecord array{timestamp: string, function: string, instance: string, level: string|null, message: string, context?: array<mixed>, extra?: array<mixed>, exception?: LogException}
@@ -71,19 +71,23 @@ class LogRenderer
         // Bref's runtime errors have no file
         $location = $exception['file'] !== '' ? " at {$exception['file']}" : '';
 
-        if (! $this->full) {
+        if ($this->full) {
+            $lines = [$prefix . $this->red($exception['class']) . ': ' . $this->indent($exception['message'], 2)];
+            if ($location !== '') {
+                $lines[] = self::INDENT . '  ' . $this->gray(ltrim($location));
+            }
+            foreach ($exception['trace'] ?? [] as $i => $frame) {
+                $lines[] = self::INDENT . '  ' . $this->gray("#$i $frame");
+            }
+        } elseif ($isPrevious) {
+            // Its message is usually the actual cause, e.g. the HTTP error behind a RuntimeException
+            $lines = [$prefix . $this->red($exception['class']) . ': ' . $this->indent($exception['message'], 2)];
+        } else {
+            // Its message is usually the log message already
             $frames = $exception['frames'] > 0 ? " ({$exception['frames']} frames)" : '';
-
-            return $prefix . $this->red($exception['class']) . $this->gray($location . $frames);
+            $lines = [$prefix . $this->red($exception['class']) . $this->gray($location . $frames)];
         }
 
-        $lines = [$prefix . $this->red($exception['class']) . ': ' . $this->indent($exception['message'], 2)];
-        if ($location !== '') {
-            $lines[] = self::INDENT . '  ' . $this->gray(ltrim($location));
-        }
-        foreach ($exception['trace'] ?? [] as $i => $frame) {
-            $lines[] = self::INDENT . '  ' . $this->gray("#$i $frame");
-        }
         if (isset($exception['previous'])) {
             /** @var LogException $previous */
             $previous = $exception['previous'];
