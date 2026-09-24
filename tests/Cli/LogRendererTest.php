@@ -63,6 +63,25 @@ class LogRendererTest extends TestCase
         $this->assertSame(['2026-09-23 10:14:00.000 web 0f9e8d START processing batch 12 of 40'], $lines);
     }
 
+    public function test_the_causes_of_an_exception_are_shown_with_their_message(): void
+    {
+        $record = self::ERROR;
+        $record['exception']['previous'] = [
+            'class' => 'GuzzleHttp\Exception\ServerException',
+            'message' => '502 Bad Gateway',
+            'file' => 'vendor/guzzlehttp/guzzle/src/Middleware.php:69',
+            'frames' => 0,
+        ];
+
+        $lines = (new LogRenderer(colors: false, full: false))->render([$record]);
+
+        $this->assertSame([implode("\n", [
+            '2026-09-23 10:12:51.863 web 45f01a ERROR Payment gateway returned 502',
+            '    ↳ RuntimeException at app/Billing.php:37 (2 frames)',
+            '    ↳ Caused by GuzzleHttp\Exception\ServerException: 502 Bad Gateway',
+        ])], $lines);
+    }
+
     public function test_full_records_show_the_stack_trace_and_the_previous_exceptions(): void
     {
         $record = self::ERROR;

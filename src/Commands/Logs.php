@@ -35,7 +35,7 @@ class Logs extends EnvironmentDataCommand
             ->setHelp(<<<'HELP'
                 Shows the logs of all the functions of an environment, oldest first. Times are in UTC.
 
-                Laravel logs show their level and context, and exceptions show their class and location
+                Laravel logs show their level and context, and exceptions show their class, location and cause
                 (their stack trace with --full). Other logs are shown as they are, one line per entry.
                 The lines that Lambda and PHP-FPM write on every invocation are hidden, --all shows them.
 
