@@ -152,7 +152,7 @@ class CloudFormation
             /** @var array{StackEvents?: StackEvent[], NextToken?: string} $result */
             $result = $this->cloudFormation->describeStackEvents([
                 'StackName' => $stackName,
-                'NextToken' => $nextToken,
+                ...($nextToken ? ['NextToken' => $nextToken] : []),
             ])->toArray();
 
             if (! empty($result['StackEvents'])) {

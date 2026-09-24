@@ -33,6 +33,10 @@ class Application extends \Symfony\Component\Console\Application
         $this->safeAddCommand(new Commands\Cloud);
         $this->safeAddCommand(new Commands\Tinker);
         $this->safeAddCommand(new Commands\SecretCreate);
+        $this->safeAddCommand(new Commands\Logs);
+        $this->safeAddCommand(new Commands\Deployments);
+        $this->safeAddCommand(new Commands\DeploymentsShow);
+        $this->safeAddCommand(new Commands\DeploymentsLogs);
     }
 
     public function safeAddCommand(Command $command): ?Command
@@ -65,23 +69,7 @@ class Application extends \Symfony\Component\Console\Application
     {
         IO::spinClear();
 
-        // Prettify Bref Cloud errors
-        if ($e instanceof ClientException) {
-            try {
-                $body = $e->getResponse()->toArray(false);
-                $message = $body['message'] ?? 'Unknown Bref Cloud error';
-                $statusCode = $e->getResponse()->getStatusCode();
-
-                $message = match ($statusCode) {
-                    401 => 'Unauthenticated. Please log in with `bref login`.',
-                    403 => 'Forbidden. You do not have the required permissions. Do you need to login to a different team?',
-                    default => $message,
-                };
-
-                $e = new Exception("Bref Cloud API error: [$statusCode] $message", $statusCode);
-            } catch (Throwable) {
-            }
-        }
+        $e = self::prettifyException($e);
 
         // Prettify AWS credentials errors
         if ($e instanceof CredentialsException && str_contains($e->getMessage(), 'not found in credentials file')) {
@@ -93,6 +81,32 @@ class Application extends \Symfony\Component\Console\Application
             IO::writeln(Styles::gray('verbose logs are available by running `bref previous-logs`'));
         }
         IO::error($e);
+    }
+
+    /**
+     * Turn Bref Cloud API errors into their message.
+     */
+    public static function prettifyException(Throwable $e): Throwable
+    {
+        if (! $e instanceof ClientException) {
+            return $e;
+        }
+        try {
+            $body = $e->getResponse()->toArray(false);
+            $message = $body['message'] ?? 'Unknown Bref Cloud error';
+            $statusCode = $e->getResponse()->getStatusCode();
+
+            $message = match ($statusCode) {
+                401 => 'Unauthenticated. Please log in with `bref login`.',
+                403 => 'Forbidden. You do not have the required permissions. Do you need to login to a different team?',
+                429 => 'Too many requests, try again in a minute.',
+                default => $message,
+            };
+
+            return new Exception("Bref Cloud API error: [$statusCode] $message", $statusCode);
+        } catch (Throwable) {
+            return $e;
+        }
     }
 
     private function turnWarningsIntoExceptions(): void
