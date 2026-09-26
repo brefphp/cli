@@ -63,6 +63,23 @@ class LogRendererTest extends TestCase
         $this->assertSame(['2026-09-23 10:14:00.000 web 0f9e8d START processing batch 12 of 40'], $lines);
     }
 
+    /**
+     * Bref's log formatters start lines with the request ID: it replaces the instance, and a line without one, e.g. on a
+     * cold start, keeps the columns aligned.
+     */
+    public function test_the_short_request_id_replaces_the_instance(): void
+    {
+        $lines = (new LogRenderer(colors: false, full: false))->render([
+            ['timestamp' => '2026-09-23T10:14:00.000Z', 'function' => 'web', 'instance' => '0f9e8d', 'level' => null, 'message' => 'Creating storage directories'],
+            ['timestamp' => '2026-09-23T10:14:00.120Z', 'function' => 'web', 'instance' => '0f9e8d', 'request_id' => '8f507cfc-8b35-4e7e-9f26-f2a3a6e7e1a2', 'level' => 'INFO', 'message' => 'User signed in'],
+        ]);
+
+        $this->assertSame([
+            '2026-09-23 10:14:00.000 web               Creating storage directories',
+            '2026-09-23 10:14:00.120 web 8f507cfc INFO User signed in',
+        ], $lines);
+    }
+
     public function test_the_causes_of_an_exception_are_shown_with_their_message(): void
     {
         $record = self::ERROR;

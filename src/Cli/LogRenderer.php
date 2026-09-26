@@ -5,15 +5,20 @@ namespace Bref\Cli\Cli;
 /**
  * Renders the log records returned by Bref Cloud, which already parsed and truncated them.
  *
- * One line per record: `2026-09-23 10:12:51.863 web 45f01a ERROR message {"context"}`,
+ * One line per record: `2026-09-23 10:12:51.863 web 8f507cfc ERROR message {"context"}`,
  * then the exception and its causes on indented lines, if any.
  *
+ * The ID after the function is the short request ID. For logs that don't have one (written by an older version of
+ * Bref's log formatters), it is the instance instead: the end of the log stream, one per Lambda execution environment.
+ *
  * @phpstan-type LogException array{class: string, message: string, file: string, frames: int, trace?: list<string>, previous?: array<string, mixed>}
- * @phpstan-type LogRecord array{timestamp: string, function: string, instance: string, level: string|null, message: string, context?: array<mixed>, extra?: array<mixed>, exception?: LogException}
+ * @phpstan-type LogRecord array{timestamp: string, function: string, instance: string, request_id?: string, level: string|null, message: string, context?: array<mixed>, extra?: array<mixed>, exception?: LogException}
  */
 class LogRenderer
 {
     private const MAX_CONTEXT_LENGTH = 500;
+    /** Like a short commit hash, and like the dashboard: enough to tell requests apart, and to search for one with `--search` */
+    private const SHORT_REQUEST_ID_LENGTH = 8;
     private const INDENT = '    ';
 
     public function __construct(
@@ -29,19 +34,24 @@ class LogRenderer
     {
         $functionWidth = max([0, ...array_map(fn(array $record) => strlen($record['function']), $records)]);
         $levelWidth = max([0, ...array_map(fn(array $record) => strlen($record['level'] ?? ''), $records)]);
+        $hasRequestIds = array_filter($records, fn(array $record) => isset($record['request_id'])) !== [];
 
-        return array_map(fn(array $record) => $this->renderRecord($record, $functionWidth, $levelWidth), $records);
+        return array_map(fn(array $record) => $this->renderRecord($record, $functionWidth, $levelWidth, $hasRequestIds), $records);
     }
 
     /**
      * @param LogRecord $record
      */
-    private function renderRecord(array $record, int $functionWidth, int $levelWidth): string
+    private function renderRecord(array $record, int $functionWidth, int $levelWidth, bool $hasRequestIds): string
     {
+        // A single ID column: two unlabeled IDs side by side would be confusing
+        $id = $hasRequestIds
+            ? str_pad(substr($record['request_id'] ?? '', 0, self::SHORT_REQUEST_ID_LENGTH), self::SHORT_REQUEST_ID_LENGTH)
+            : $record['instance'];
         $columns = [
             $this->gray(str_replace('T', ' ', rtrim($record['timestamp'], 'Z'))),
             str_pad($record['function'], $functionWidth),
-            $this->gray($record['instance']),
+            $this->gray($id),
         ];
         // Only logs written by Bref's Monolog formatter have a level: there is no column for apps that don't use it
         if ($levelWidth > 0) {
