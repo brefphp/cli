@@ -3,6 +3,8 @@
 namespace Bref\Cli\Commands;
 
 use Aws\CloudFormation\CloudFormationClient;
+use Aws\Exception\AwsException;
+use Aws\Exception\CredentialsException;
 use Aws\Sts\StsClient;
 use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
@@ -24,7 +26,7 @@ class Connect extends Command
         $this
             ->setName('connect')
             ->setDescription('Connect an AWS account to Bref Cloud using the AWS credentials configured on your machine')
-            ->addOption('profile', null, InputOption::VALUE_REQUIRED, 'The AWS profile to use', 'default');
+            ->addOption('profile', null, InputOption::VALUE_REQUIRED, 'The AWS profile to use (defaults to the AWS_PROFILE environment variable, then to "default")');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -35,10 +37,14 @@ class Connect extends Command
             'Retrieving information...',
         ]);
 
-        /** @var string $awsProfile */
+        /** @var string|null $awsProfile */
         $awsProfile = $input->getOption('profile');
-
-        putenv('AWS_PROFILE=' . $awsProfile);
+        if ($awsProfile !== null) {
+            putenv('AWS_PROFILE=' . $awsProfile);
+        } else {
+            // Keep the profile selected with `export AWS_PROFILE=...`, like the AWS CLI
+            $awsProfile = getenv('AWS_PROFILE') ?: 'default';
+        }
 
         $accountId = $this->getCurrentAwsAccountId($awsProfile);
         // TODO verbose only
@@ -116,11 +122,15 @@ class Connect extends Command
             $stackParameters['RoleName'] = $details['role_name'];
         }
         $cloudFormation = new CloudFormation($cloudFormationClient);
-        $cloudFormation->deploy(
-            $details['stack_name'],
-            $details['template_url'],
-            $stackParameters,
-        );
+        try {
+            $cloudFormation->deploy(
+                $details['stack_name'],
+                $details['template_url'],
+                $stackParameters,
+            );
+        } catch (AwsException $e) {
+            throw self::explainDeployError($e, $details['stack_name'], $details['region']);
+        }
 
         if (!$isConnected && $accountName) {
             IO::spin('adding to Bref Cloud');
@@ -140,14 +150,49 @@ class Connect extends Command
         return 0;
     }
 
+    /**
+     * AWS accounts created with "Sign up for AWS (new)" (AWS projects) have AWS-managed service control
+     * policies: they deny CloudFormation outside of the project's region, and Bref Cloud could not
+     * access the account anyway. The raw AWS error does not say any of that.
+     */
+    public static function explainDeployError(AwsException $e, string $stackName, string $region): Exception
+    {
+        $awsMessage = $e->getAwsErrorMessage() ?: $e->getMessage();
+        if (! str_contains($awsMessage, 'explicit deny in a service control policy')) {
+            return $e;
+        }
+
+        return new Exception(
+            "AWS denied the deployment of the '$stackName' CloudFormation stack in $region: $awsMessage\n\n"
+            . 'If this AWS account was created with "Sign up for AWS (new)", it is an AWS project: AWS blocks Bref Cloud from connecting to AWS projects. '
+            . 'Create an AWS account with "Sign up for AWS (advanced)" instead: https://bref.sh/docs/setup#aws-projects',
+            previous: $e,
+        );
+    }
+
     private function getCurrentAwsAccountId(string $profile): string
     {
         $sts = new StsClient([
             'region' => 'us-east-1',
         ]);
 
-        return $sts->getCallerIdentity()->toArray()['Account'] ??
-            throw new RuntimeException('Could not determine the AWS account ID');
+        try {
+            $identity = $sts->getCallerIdentity()->toArray();
+        } catch (CredentialsException $e) {
+            // The AWS SDK tries each credential provider in turn and only reports the error of the last one
+            // (the EC2 instance metadata service), which hides the actual cause, e.g. an expired `aws login` session
+            if (str_contains($e->getMessage(), 'instance profile metadata service')) {
+                throw new Exception(
+                    "No valid AWS credentials found for the AWS profile '$profile'. "
+                    . "If you log in with `aws login`, run `aws login --profile $profile` again: its sessions expire after 12 hours. "
+                    . 'Use the `--profile` option to select another AWS profile.',
+                    previous: $e,
+                );
+            }
+            throw $e;
+        }
+
+        return $identity['Account'] ?? throw new RuntimeException('Could not determine the AWS account ID');
     }
 
     private function selectTeam(BrefCloudClient $brefCloud): int

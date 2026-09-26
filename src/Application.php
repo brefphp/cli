@@ -96,10 +96,14 @@ class Application extends \Symfony\Component\Console\Application
             $message = $body['message'] ?? 'Unknown Bref Cloud error';
             $statusCode = $e->getResponse()->getStatusCode();
 
-            $message = match ($statusCode) {
-                401 => 'Unauthenticated. Please log in with `bref login`.',
-                403 => 'Forbidden. You do not have the required permissions. Do you need to login to a different team?',
-                429 => 'Too many requests, try again in a minute.',
+            // Laravel's messages for a failed authorization, which say nothing about the cause
+            $isGenericForbidden = in_array($body['message'] ?? '', ['', 'This action is unauthorized.'], true);
+
+            $message = match (true) {
+                $statusCode === 401 => 'Unauthenticated. Please log in with `bref login`.',
+                // Other 403 responses explain their cause (e.g. Bref Cloud cannot access the AWS account)
+                $statusCode === 403 && $isGenericForbidden => 'Forbidden. You do not have the required permissions. Do you need to login to a different team?',
+                $statusCode === 429 => 'Too many requests, try again in a minute.',
                 default => $message,
             };
 
