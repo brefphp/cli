@@ -64,9 +64,10 @@ class LogRendererTest extends TestCase
     }
 
     /**
-     * Bref's log formatters start lines with the request ID: a line without one, e.g. on a cold start, keeps the columns aligned.
+     * Bref's log formatters start lines with the request ID: it replaces the instance, and a line without one, e.g. on a
+     * cold start, keeps the columns aligned.
      */
-    public function test_the_short_request_id_follows_the_instance(): void
+    public function test_the_short_request_id_replaces_the_instance(): void
     {
         $lines = (new LogRenderer(colors: false, full: false))->render([
             ['timestamp' => '2026-09-23T10:14:00.000Z', 'function' => 'web', 'instance' => '0f9e8d', 'level' => null, 'message' => 'Creating storage directories'],
@@ -74,8 +75,8 @@ class LogRendererTest extends TestCase
         ]);
 
         $this->assertSame([
-            '2026-09-23 10:14:00.000 web 0f9e8d               Creating storage directories',
-            '2026-09-23 10:14:00.120 web 0f9e8d 8f507cfc INFO User signed in',
+            '2026-09-23 10:14:00.000 web               Creating storage directories',
+            '2026-09-23 10:14:00.120 web 8f507cfc INFO User signed in',
         ], $lines);
     }
 

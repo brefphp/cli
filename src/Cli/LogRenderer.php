@@ -5,8 +5,11 @@ namespace Bref\Cli\Cli;
 /**
  * Renders the log records returned by Bref Cloud, which already parsed and truncated them.
  *
- * One line per record: `2026-09-23 10:12:51.863 web 45f01a 8f507cfc ERROR message {"context"}`,
+ * One line per record: `2026-09-23 10:12:51.863 web 8f507cfc ERROR message {"context"}`,
  * then the exception and its causes on indented lines, if any.
+ *
+ * The ID after the function is the short request ID. For logs that don't have one (written by an older version of
+ * Bref's log formatters), it is the instance instead: the end of the log stream, one per Lambda execution environment.
  *
  * @phpstan-type LogException array{class: string, message: string, file: string, frames: int, trace?: list<string>, previous?: array<string, mixed>}
  * @phpstan-type LogRecord array{timestamp: string, function: string, instance: string, request_id?: string, level: string|null, message: string, context?: array<mixed>, extra?: array<mixed>, exception?: LogException}
@@ -41,15 +44,15 @@ class LogRenderer
      */
     private function renderRecord(array $record, int $functionWidth, int $levelWidth, bool $hasRequestIds): string
     {
+        // A single ID column: two unlabeled IDs side by side would be confusing
+        $id = $hasRequestIds
+            ? str_pad(substr($record['request_id'] ?? '', 0, self::SHORT_REQUEST_ID_LENGTH), self::SHORT_REQUEST_ID_LENGTH)
+            : $record['instance'];
         $columns = [
             $this->gray(str_replace('T', ' ', rtrim($record['timestamp'], 'Z'))),
             str_pad($record['function'], $functionWidth),
-            $this->gray($record['instance']),
+            $this->gray($id),
         ];
-        // Logs written before Bref's log formatters started lines with the request ID get no column
-        if ($hasRequestIds) {
-            $columns[] = $this->gray(str_pad(substr($record['request_id'] ?? '', 0, self::SHORT_REQUEST_ID_LENGTH), self::SHORT_REQUEST_ID_LENGTH));
-        }
         // Only logs written by Bref's Monolog formatter have a level: there is no column for apps that don't use it
         if ($levelWidth > 0) {
             $columns[] = $this->level(str_pad($record['level'] ?? '', $levelWidth));
