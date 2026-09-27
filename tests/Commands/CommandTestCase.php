@@ -14,6 +14,8 @@ abstract class CommandTestCase extends TestCase
     private array $agentVariables = [];
     /** @var list<string> Paths and query strings of the requests sent to Bref Cloud */
     protected array $requests = [];
+    /** @var array<string, mixed> JSON bodies of the requests sent to Bref Cloud, indexed by path */
+    protected array $requestBodies = [];
 
     protected function setUp(): void
     {
@@ -41,10 +43,13 @@ abstract class CommandTestCase extends TestCase
      */
     protected function brefCloud(array $routes): BrefCloudClient
     {
-        $client = new MockHttpClient(function (string $method, string $url) use ($routes): MockResponse {
+        $client = new MockHttpClient(function (string $method, string $url, array $options) use ($routes): MockResponse {
             $path = (string) parse_url($url, PHP_URL_PATH);
             $query = (string) parse_url($url, PHP_URL_QUERY);
             $this->requests[] = urldecode($path . ($query ? "?$query" : ''));
+            if (is_string($options['body'] ?? null) && $options['body'] !== '') {
+                $this->requestBodies[$path] = json_decode($options['body'], true);
+            }
             if (! array_key_exists($path, $routes)) {
                 $this->fail("Unexpected request: $method $url");
             }
