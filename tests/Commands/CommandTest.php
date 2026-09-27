@@ -2,9 +2,10 @@
 
 namespace Bref\Cli\Test\Commands;
 
-use Bref\Cli\Application;
+use Bref\Cli\Cli\IO;
 use Bref\Cli\Commands\Command;
-use Symfony\Component\Console\Tester\ApplicationTester;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 class CommandTest extends CommandTestCase
 {
@@ -25,36 +26,41 @@ class CommandTest extends CommandTestCase
 
     public function test_asks_for_colors_when_the_output_is_a_terminal(): void
     {
-        $tester = $this->runCommand(decorated: true);
+        [$status, $display] = $this->runCommand(decorated: true);
 
-        $this->assertSame(0, $tester->getStatusCode(), $tester->getDisplay());
+        $this->assertSame(0, $status, $display);
         $this->assertSame(['environmentId' => 12, 'command' => 'about', 'ansi' => true], $this->requestBodies['/api/v1/commands/start']);
         // Printed as is: the terminal renders the colors
-        $this->assertStringContainsString("\e[32mLaravel\e[39m", $tester->getDisplay());
+        $this->assertStringContainsString("\e[32mLaravel\e[39m", $display);
     }
 
     public function test_no_colors_when_the_output_is_not_a_terminal(): void
     {
-        $tester = $this->runCommand(decorated: false);
+        [$status, $display] = $this->runCommand(decorated: false);
 
-        $this->assertSame(0, $tester->getStatusCode(), $tester->getDisplay());
+        $this->assertSame(0, $status, $display);
         $this->assertFalse($this->requestBodies['/api/v1/commands/start']['ansi']);
     }
 
-    private function runCommand(bool $decorated): ApplicationTester
+    /**
+     * @return array{int, string} The exit code and the output
+     */
+    private function runCommand(bool $decorated): array
     {
-        // Through the application, which sets up the output of the `IO` class
-        $application = new Application;
-        restore_error_handler();
-        $application->setAutoExit(false);
-        $application->safeAddCommand(new Command($this->brefCloud([
+        $command = new Command($this->brefCloud([
             '/api/v1/environments/find' => $this->environment(),
             '/api/v1/commands/start' => ['id' => 5],
             '/api/v1/commands/5' => ['status' => 'success', 'output' => "\e[32mLaravel\e[39m 13"],
-        ])));
-        $tester = new ApplicationTester($application);
-        $tester->run(['command' => 'command', 'args' => 'about', '--config' => $this->configFile], ['decorated' => $decorated]);
+        ]));
+        $input = new ArrayInput(['args' => 'about', '--config' => $this->configFile]);
+        $input->setInteractive(false);
+        $output = new BufferedOutput(decorated: $decorated);
+        // What the application does before running a command
+        IO::init($input, $output);
 
-        return $tester;
+        $status = $command->run($input, $output);
+        IO::stop();
+
+        return [$status, $output->fetch()];
     }
 }
