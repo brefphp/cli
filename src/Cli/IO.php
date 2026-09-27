@@ -63,6 +63,17 @@ class IO
     }
 
     /**
+     * Write on stdout as is: text that looks like Symfony Console tags (`<info>`, `<href=...>`) is not interpreted.
+     * For text that doesn't come from the CLI, e.g. the output of a command run on Lambda.
+     * @param string|string[] $messages
+     */
+    public static function writeRaw(string|array $messages): void
+    {
+        self::safeWrite($messages, OutputInterface::OUTPUT_RAW);
+        self::writeToLogsFile($messages);
+    }
+
+    /**
      * Log at the verbose level.
      * @param string|string[] $messages
      */
@@ -202,8 +213,9 @@ class IO
 
     /**
      * @param string|string[] $messages
+     * @param OutputInterface::OUTPUT_NORMAL|OutputInterface::OUTPUT_RAW $options
      */
-    private static function safeWrite(string|array $messages): void
+    private static function safeWrite(string|array $messages, int $options = OutputInterface::OUTPUT_NORMAL): void
     {
         if (OutputInterface::VERBOSITY_QUIET === self::$output->getVerbosity()) return;
 
@@ -228,7 +240,7 @@ class IO
         stream_set_blocking(STDOUT, true);
         stream_set_blocking(STDERR, true);
 
-        self::$output->writeln($messages);
+        self::$output->writeln($messages, $options);
 
         // Render the spinner again
         self::$spinner?->render();

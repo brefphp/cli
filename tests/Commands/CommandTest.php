@@ -42,15 +42,34 @@ class CommandTest extends CommandTestCase
         $this->assertFalse($this->requestBodies['/api/v1/commands/start']['ansi']);
     }
 
+    public function test_the_output_is_printed_as_is(): void
+    {
+        // Text that looks like Symfony Console tags is not interpreted: it's the output of the application
+        $output = 'Hello <info>world</info>, <href=https://example.com>a link</>';
+
+        [$status, $display] = $this->runCommand(decorated: true, command: ['status' => 'success', 'output' => $output]);
+        $this->assertSame(0, $status, $display);
+        $this->assertStringContainsString($output, $display);
+
+        [$status, $display] = $this->runCommand(decorated: false, command: [
+            'status' => 'failed',
+            'output' => json_encode(['errorType' => 'Bref\ConsoleRuntime\CommandFailed', 'errorMessage' => $output]),
+        ]);
+        $this->assertSame(1, $status, $display);
+        $this->assertStringContainsString($output, $display);
+    }
+
     /**
+     * @param array{status: string, output: string} $command What Bref Cloud returns for the command
      * @return array{int, string} The exit code and the output
      */
-    private function runCommand(bool $decorated): array
+    private function runCommand(bool $decorated, array $command = ['status' => 'success', 'output' => "\e[32mLaravel\e[39m 13"]): array
     {
+        $this->requestBodies = [];
         $command = new Command($this->brefCloud([
             '/api/v1/environments/find' => $this->environment(),
             '/api/v1/commands/start' => ['id' => 5],
-            '/api/v1/commands/5' => ['status' => 'success', 'output' => "\e[32mLaravel\e[39m 13"],
+            '/api/v1/commands/5' => $command,
         ]));
         $input = new ArrayInput(['args' => 'about', '--config' => $this->configFile]);
         $input->setInteractive(false);
