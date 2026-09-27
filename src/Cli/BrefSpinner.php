@@ -166,7 +166,9 @@ class BrefSpinner
                 $this->output->write(Styles::gray('press [?] for verbose logs'));
             }
         } else {
-            $this->output->writeln($message);
+            // Our colors are raw ANSI escape codes (see `Styles`), which Symfony does not strip on
+            // its own when the output is not decorated (a pipe, a redirection to a file, CI...).
+            $this->output->writeln($this->output->isDecorated() ? $message : Styles::strip($message));
         }
     }
 

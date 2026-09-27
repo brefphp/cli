@@ -178,8 +178,7 @@ class IO
         if (! self::$logsFileResource) return;
 
         $message = is_array($messages) ? implode(PHP_EOL, $messages) : $messages;
-        // Strip ANSI
-        $message = (string) preg_replace('/\x1b\[[0-9;]*m/', '', $message);
+        $message = Styles::strip($message);
         foreach (explode(PHP_EOL, $message) as $line) {
             if (empty(trim($line))) continue;
             fwrite(self::$logsFileResource, $line . PHP_EOL);
@@ -214,6 +213,13 @@ class IO
         // when the resulting output is very long. To avoid this, we split the string into multiple lines.
         if (is_string($messages)) {
             $messages = explode(PHP_EOL, $messages);
+        }
+
+        // Our own colors are raw ANSI escape codes (see `Styles`), not Symfony formatter tags, so
+        // Symfony does not strip them on its own when the output is not decorated (NO_COLOR, a pipe,
+        // a redirection to a file...). Strip them here so piped/redirected output stays clean.
+        if (! self::$output->isDecorated()) {
+            $messages = array_map(Styles::strip(...), $messages);
         }
 
         // Symfony `StreamOutput` is not compatible with non-blocking mode

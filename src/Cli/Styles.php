@@ -119,4 +119,13 @@ class Styles
     {
         return "\e[90m{$text}\e[39m";
     }
+
+    /**
+     * Removes ANSI escape codes, for when the text ends up somewhere that does not render them
+     * (a piped/redirected output, a log file...).
+     */
+    public static function strip(string $text): string
+    {
+        return (string) preg_replace('/\x1b\[[0-9;]*m/', '', $text);
+    }
 }
