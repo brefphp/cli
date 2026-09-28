@@ -43,11 +43,13 @@ class ServerlessFramework
         $oslsPackage = ($input->hasOption('osls4') && $input->getOption('osls4')) ? 'osls@4' : 'osls@3';
 
         $newLogs = '';
+        // The whole output ($newLogs is emptied when pushed to Bref Cloud)
+        $output = '';
 
         try {
 
             $process = $this->serverlessExec($oslsPackage, 'deploy', $environment, $awsCredentials, $options);
-            async(function () use ($process, &$newLogs) {
+            async(function () use ($process, &$newLogs, &$output) {
                 while (($chunk = $process->getStdout()->read()) !== null) {
                     if (empty($chunk)) continue;
                     foreach (self::IGNORED_LOGS as $ignoredLog) {
@@ -55,9 +57,10 @@ class ServerlessFramework
                     }
                     IO::verbose($chunk);
                     $newLogs .= $chunk;
+                    $output .= $chunk;
                 }
             });
-            async(function () use ($process, &$newLogs) {
+            async(function () use ($process, &$newLogs, &$output) {
                 while (($chunk = $process->getStderr()->read()) !== null) {
                     if (empty($chunk)) continue;
                     foreach (self::IGNORED_LOGS as $ignoredLog) {
@@ -65,6 +68,7 @@ class ServerlessFramework
                     }
                     IO::verbose($chunk);
                     $newLogs .= $chunk;
+                    $output .= $chunk;
                 }
             });
             // Send logs to Bref Cloud every x seconds
@@ -88,8 +92,11 @@ class ServerlessFramework
                 $newLogs .= "Error while running 'serverless deploy', deployment failed\n";
                 IO::writeln("Error while running 'serverless deploy', deployment failed");
 
-                // Bref Cloud finds the error in the logs
-                $brefCloud->markDeploymentFinished($deploymentId, false, null, $newLogs);
+                // Bref Cloud finds the error in the logs.
+                // The stack is only known after a successful deployment: if this one created it, it is sent
+                // so that removing the environment deletes it.
+                [$stackName, $region] = $this->findCreatedStack($output) ?? [null, null];
+                $brefCloud->markDeploymentFinished($deploymentId, false, null, $newLogs, $region, $stackName);
                 return;
             }
 
@@ -114,6 +121,31 @@ class ServerlessFramework
 
             throw $e;
         }
+    }
+
+    /**
+     * The stack that the deployment created, if it did.
+     *
+     * With `--verbose`, osls logs the events of the stack. The first one is the stack's own (nested stacks come after):
+     * `CREATE_IN_PROGRESS` when osls creates it, `UPDATE_IN_PROGRESS` when it already existed (e.g. deployed some
+     * other way before), and there is none when the deployment failed before CloudFormation.
+     *
+     * @return array{string, string}|null The stack name and its region.
+     */
+    public function findCreatedStack(string $output): ?array
+    {
+        if (! preg_match('/^\s*(\w+) - AWS::CloudFormation::Stack - (\S+)\s*$/m', $output, $firstStackEvent)) {
+            return null;
+        }
+        if ($firstStackEvent[1] !== 'CREATE_IN_PROGRESS') {
+            return null;
+        }
+        // "Deploying <service> to stage <stage> (<region>)"
+        if (! preg_match('/^\s*Deploying .+ to stage .+ \(([a-z0-9-]+)\)\s*$/m', $output, $deploying)) {
+            return null;
+        }
+
+        return [$firstStackEvent[2], $deploying[1]];
     }
 
     /**
