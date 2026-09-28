@@ -57,7 +57,8 @@ class Command extends ApplicationCommand
 
             if ($invocation['status'] === 'success') {
                 IO::spinClear();
-                IO::writeln($invocation['output']);
+                // As is: the output of the command is not formatted for Symfony Console
+                IO::writeRaw($invocation['output']);
                 return 0;
             }
 
@@ -86,7 +87,7 @@ class Command extends ApplicationCommand
                 || ! isset($errorDetails['errorType'], $errorDetails['errorMessage'])
                 || ! is_string($errorDetails['errorType'])
                 || ! is_string($errorDetails['errorMessage'])) {
-                IO::writeln(Styles::red($output));
+                IO::writeRaw(Styles::red($output));
                 return;
             }
 
@@ -100,14 +101,15 @@ class Command extends ApplicationCommand
                 '',
                 Styles::bold(Styles::red('ERROR')) . '   ' . Styles::gray($errorType),
                 '',
-                $errorDetails['errorMessage'],
             ]);
+            // The output of the command
+            IO::writeRaw($errorDetails['errorMessage']);
             if (isset($errorDetails['stackTrace']) && is_array($errorDetails['stackTrace'])) {
                 $stackTrace = array_values(array_filter($errorDetails['stackTrace'], 'is_string'));
                 IO::verbose($stackTrace);
             }
         } catch (JsonException) {
-            IO::writeln(Styles::red($output));
+            IO::writeRaw(Styles::red($output));
         }
     }
 }
