@@ -223,6 +223,9 @@ class ServerlessFramework
             'AWS_ACCESS_KEY_ID' => $awsCredentials['accessKeyId'],
             'AWS_SECRET_ACCESS_KEY' => $awsCredentials['secretAccessKey'],
             'AWS_SESSION_TOKEN' => $awsCredentials['sessionToken'],
+            // The output is parsed (`serverless info`) and pushed as the deployment logs: no colors, even when
+            // `FORCE_COLOR` is set, e.g. by a CI or an agent (`--no-color` doesn't win over `FORCE_COLOR`)
+            'FORCE_COLOR' => '0',
         ];
         // Merge the current environment with the AWS credentials
         $env = array_merge(getenv(), $env);
