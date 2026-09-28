@@ -13,6 +13,12 @@ use function Amp\delay;
 
 class Command extends ApplicationCommand
 {
+    public function __construct(
+        private readonly ?BrefCloudClient $brefCloud = null,
+    ) {
+        parent::__construct();
+    }
+
     protected function configure(): void
     {
         $this
@@ -35,9 +41,10 @@ class Command extends ApplicationCommand
 
         IO::spin('starting command');
 
-        $brefCloud = new BrefCloudClient;
+        $brefCloud = $this->brefCloud ?? new BrefCloudClient;
         $environment = $brefCloud->findEnvironment($team, $appName, $environmentName);
-        $id = $brefCloud->startCommand($environment['id'], $command);
+        // Colors when the output is a terminal that shows them, the command's output is printed as is
+        $id = $brefCloud->startCommand($environment['id'], $command, $output->isDecorated());
 
         IO::spin('running');
 

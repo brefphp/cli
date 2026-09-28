@@ -305,15 +305,17 @@ class BrefCloudClient
     }
 
     /**
+     * @param bool $ansi Ask for colors: Bref Cloud adds `--ansi` to the command when the application's console supports it.
      * @throws HttpExceptionInterface
      * @throws ExceptionInterface
      */
-    public function startCommand(int $environmentId, string $command): int
+    public function startCommand(int $environmentId, string $command, bool $ansi = false): int
     {
         return $this->client->request('POST', '/api/v1/commands/start', [
             'json' => [
                 'environmentId' => $environmentId,
                 'command' => $command,
+                'ansi' => $ansi,
             ],
         ])->toArray()['id'];
     }
