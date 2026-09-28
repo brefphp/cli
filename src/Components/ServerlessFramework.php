@@ -43,12 +43,11 @@ class ServerlessFramework
         $oslsPackage = ($input->hasOption('osls4') && $input->getOption('osls4')) ? 'osls@4' : 'osls@3';
 
         $newLogs = '';
-        $entireSlsOutput = '';
 
         try {
 
             $process = $this->serverlessExec($oslsPackage, 'deploy', $environment, $awsCredentials, $options);
-            async(function () use ($process, &$newLogs, &$entireSlsOutput) {
+            async(function () use ($process, &$newLogs) {
                 while (($chunk = $process->getStdout()->read()) !== null) {
                     if (empty($chunk)) continue;
                     foreach (self::IGNORED_LOGS as $ignoredLog) {
@@ -56,10 +55,9 @@ class ServerlessFramework
                     }
                     IO::verbose($chunk);
                     $newLogs .= $chunk;
-                    $entireSlsOutput .= $chunk;
                 }
             });
-            async(function () use ($process, &$newLogs, &$entireSlsOutput) {
+            async(function () use ($process, &$newLogs) {
                 while (($chunk = $process->getStderr()->read()) !== null) {
                     if (empty($chunk)) continue;
                     foreach (self::IGNORED_LOGS as $ignoredLog) {
@@ -67,7 +65,6 @@ class ServerlessFramework
                     }
                     IO::verbose($chunk);
                     $newLogs .= $chunk;
-                    $entireSlsOutput .= $chunk;
                 }
             });
             // Send logs to Bref Cloud every x seconds
@@ -91,14 +88,8 @@ class ServerlessFramework
                 $newLogs .= "Error while running 'serverless deploy', deployment failed\n";
                 IO::writeln("Error while running 'serverless deploy', deployment failed");
 
-                // If `npx` is not installed throw a clear error message
-                if (str_contains($entireSlsOutput, 'npo: command not found')) {
-                    $brefCloud->markDeploymentFinished($deploymentId, false, 'NPM is not installed. Please make sure Node and NPM are installed: https://docs.npmjs.com/downloading-and-installing-node-js-and-npm', $newLogs);
-                    return;
-                }
-
-                $errorMessage = $this->findErrorMessageInServerlessOutput($entireSlsOutput);
-                $brefCloud->markDeploymentFinished($deploymentId, false, 'Serverless Framework error: ' . $errorMessage, $newLogs);
+                // Bref Cloud finds the error in the logs
+                $brefCloud->markDeploymentFinished($deploymentId, false, null, $newLogs);
                 return;
             }
 
@@ -264,18 +255,5 @@ class ServerlessFramework
         }
 
         return $result;
-    }
-
-    private function findErrorMessageInServerlessOutput(string $entireSlsOutput): string
-    {
-        // Try to find the next line after `Error:\n`
-        $lines = explode("\n", trim($entireSlsOutput));
-        foreach ($lines as $i => $line) {
-            if ($line === 'Error:' && isset($lines[$i + 1])) {
-                return $lines[$i + 1];
-            }
-        }
-        // Return the last line or fallback to a generic message
-        return $line ?: 'The "serverless deploy" command failed with an unknown error.';
     }
 }
