@@ -52,11 +52,12 @@ class DeploymentsLogs extends EnvironmentDataCommand
         foreach ($logs as $log) {
             $output->writeln($log['line'], OutputInterface::OUTPUT_RAW);
         }
-        $summary = "Deployment #$id: {$deployment['message']}";
+        $stderr = $this->stderr($output);
+        $stderr->writeln("Deployment #$id: {$deployment['message']}", OutputInterface::OUTPUT_RAW);
+        // On its own lines, as `bref deploy` shows it: it can span several lines, and ends with a hint for known errors
         if ($deployment['error_message']) {
-            $summary .= " ({$deployment['error_message']})";
+            $stderr->writeln(['', $deployment['error_message']], OutputInterface::OUTPUT_RAW);
         }
-        $this->stderr($output)->writeln($summary, OutputInterface::OUTPUT_RAW);
 
         return 0;
     }

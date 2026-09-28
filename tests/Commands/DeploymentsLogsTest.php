@@ -51,6 +51,6 @@ class DeploymentsLogsTest extends CommandTestCase
 
         $this->assertSame(0, $tester->getStatusCode(), $tester->getDisplay());
         $this->assertSame("✔ Packaged\nUPDATE_FAILED AWS::Lambda::Function\n", $tester->getDisplay());
-        $this->assertSame("Deployment #25: failed (The CloudFormation stack failed to update)\n", $tester->getErrorOutput());
+        $this->assertSame("Deployment #25: failed\n\nThe CloudFormation stack failed to update\n", $tester->getErrorOutput());
     }
 }
