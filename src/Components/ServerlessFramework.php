@@ -130,12 +130,11 @@ class ServerlessFramework
             $options[] = '--config';
             $options[] = $configFile;
         }
+        /** @var list<string> $params */
         $params = $input->hasOption('param') ? $input->getOption('param') : [];
-        foreach (is_array($params) ? $params : [] as $param) {
-            if (is_string($param)) {
-                $options[] = '--param';
-                $options[] = $param;
-            }
+        foreach ($params as $param) {
+            $options[] = '--param';
+            $options[] = $param;
         }
 
         return $options;
