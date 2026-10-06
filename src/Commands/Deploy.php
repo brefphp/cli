@@ -40,7 +40,8 @@ class Deploy extends ApplicationCommand
             ->setName('deploy')
             ->setDescription('Deploy the application')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Force the deployment')
-            ->addOption('osls4', null, InputOption::VALUE_NONE, 'Use osls@4 instead of osls@3');
+            ->addOption('osls4', null, InputOption::VALUE_NONE, 'Use osls@4 instead of osls@3')
+            ->addOption('param', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Pass a parameter to serverless.yml, e.g. --param="key=value" (can be repeated)');
         parent::configure();
     }
 
@@ -53,6 +54,11 @@ class Deploy extends ApplicationCommand
             'environmentName' => $environment,
             'config' => $config,
         ] = $this->parseStandardOptions($input);
+
+        $isServerlessFrameworkDeploy = $config['type'] === 'serverless-framework';
+        if (! $isServerlessFrameworkDeploy && $input->getOption('param')) {
+            throw new Exception('The --param option is only supported for serverless.yml applications');
+        }
 
         $brefCloud = new BrefCloudClient;
 
@@ -104,8 +110,6 @@ class Deploy extends ApplicationCommand
         $credentials = $deployment['credentials'] ?? null;
 
         IO::writeln("<href={$deployment['url']}>" . Styles::gray($deployment['url']) . '</>');
-
-        $isServerlessFrameworkDeploy = $config['type'] === 'serverless-framework';
 
         if ($isServerlessFrameworkDeploy) {
             if ($credentials === null) {

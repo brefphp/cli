@@ -2,12 +2,35 @@
 
 namespace Bref\Cli\Test\Components;
 
+use Bref\Cli\Commands\Deploy;
 use Bref\Cli\Components\ServerlessFramework;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Input\ArrayInput;
 
 class ServerlessFrameworkTest extends TestCase
 {
+    public function test_forwards_the_config_file_and_the_params_to_serverless(): void
+    {
+        $input = new ArrayInput([
+            '--config' => 'serverless.prod.yml',
+            '--param' => ['layer=arn:aws:lambda:us-east-1:123:layer:php-85:1', 'domain=example.com'],
+        ], (new Deploy)->getDefinition());
+
+        $this->assertSame([
+            '--config', 'serverless.prod.yml',
+            '--param', 'layer=arn:aws:lambda:us-east-1:123:layer:php-85:1',
+            '--param', 'domain=example.com',
+        ], (new ServerlessFramework)->commonOptions($input));
+    }
+
+    public function test_no_options_by_default(): void
+    {
+        $input = new ArrayInput([], (new Deploy)->getDefinition());
+
+        $this->assertSame([], (new ServerlessFramework)->commonOptions($input));
+    }
+
     /**
      * @param array{string, string}|null $expected
      */
