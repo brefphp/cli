@@ -28,17 +28,10 @@ class ServerlessFramework
      */
     public function deploy(int $deploymentId, string $environment, array $awsCredentials, BrefCloudClient $brefCloud, InputInterface $input): void
     {
-        $options = [];
+        $commonOptions = $this->commonOptions($input);
+        $options = $commonOptions;
         if ($input->hasOption('force')) {
             $options[] = '--force';
-        }
-        $configOption = $input->getOption('config');
-        if ($input->hasOption('config') && is_string($configOption) && $configOption !== '') {
-            $configFile = $configOption;
-            $options[] = '--config';
-            $options[] = $configFile;
-        } else {
-            $configFile = null;
         }
         $oslsPackage = ($input->hasOption('osls4') && $input->getOption('osls4')) ? 'osls@4' : 'osls@3';
 
@@ -102,7 +95,7 @@ class ServerlessFramework
 
             $hasChanges = ! str_contains($newLogs, 'No changes to deploy. Deployment skipped.');
             if ($hasChanges) {
-                $outputs = $this->retrieveOutputs($oslsPackage, $environment, $awsCredentials, $configFile);
+                $outputs = $this->retrieveOutputs($oslsPackage, $environment, $awsCredentials, $commonOptions);
 
                 $region = $outputs['region'];
                 $stackName = $outputs['stack'];
@@ -121,6 +114,30 @@ class ServerlessFramework
 
             throw $e;
         }
+    }
+
+    /**
+     * The options that both `serverless deploy` and the `serverless info` that follows it need, to resolve the
+     * same configuration (e.g. `${param:...}` variables).
+     *
+     * @return list<string>
+     */
+    public function commonOptions(InputInterface $input): array
+    {
+        $options = [];
+        $configFile = $input->hasOption('config') ? $input->getOption('config') : null;
+        if (is_string($configFile) && $configFile !== '') {
+            $options[] = '--config';
+            $options[] = $configFile;
+        }
+        /** @var list<string> $params */
+        $params = $input->hasOption('param') ? $input->getOption('param') : [];
+        foreach ($params as $param) {
+            $options[] = '--param';
+            $options[] = $param;
+        }
+
+        return $options;
     }
 
     /**
@@ -150,17 +167,12 @@ class ServerlessFramework
 
     /**
      * @param array{ accessKeyId: string, secretAccessKey: string, sessionToken: string } $awsCredentials
+     * @param list<string> $options
      * @return array<string, string>
      * @throws Exception
      */
-    private function retrieveOutputs(string $oslsPackage, string $environment, array $awsCredentials, ?string $configFile): array
+    private function retrieveOutputs(string $oslsPackage, string $environment, array $awsCredentials, array $options): array
     {
-        $options = [];
-        if ($configFile) {
-            $options[] = '--config';
-            $options[] = $configFile;
-        }
-
         $process = $this->serverlessExec($oslsPackage, 'info', $environment, $awsCredentials, $options);
         $process->join();
         $infoOutput = buffer($process->getStdout());
