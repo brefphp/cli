@@ -15,6 +15,12 @@ use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 
 class SecretCreate extends ApplicationCommand
 {
+    public function __construct(
+        private readonly ?BrefCloudClient $brefCloud = null,
+    ) {
+        parent::__construct();
+    }
+
     protected function configure(): void
     {
         $this
@@ -22,7 +28,9 @@ class SecretCreate extends ApplicationCommand
             ->setDescription('Create a secret for an environment')
             ->addArgument('name', InputArgument::OPTIONAL, 'The secret name')
             ->addArgument('value', InputArgument::OPTIONAL, 'The secret value')
-            ->addOption('app', null, InputOption::VALUE_REQUIRED, 'The app name (if no config file exists)');
+            ->addOption('app', null, InputOption::VALUE_REQUIRED, 'The app name (if no config file exists)')
+            ->addOption('aws-account', null, InputOption::VALUE_REQUIRED, 'The name of the AWS account in Bref Cloud, if the environment is not deployed yet (default: the team\'s only AWS account)')
+            ->addOption('region', null, InputOption::VALUE_REQUIRED, 'The AWS region, if the environment is not deployed yet (default: the region in the config file)');
 
         parent::configure();
     }
@@ -33,6 +41,7 @@ class SecretCreate extends ApplicationCommand
             'appName' => $appName,
             'environmentName' => $environment,
             'team' => $team,
+            'region' => $configRegion,
         ] = $this->parseEnvironmentOptions($input);
 
         // Get secret name (from argument or prompt)
@@ -62,7 +71,7 @@ class SecretCreate extends ApplicationCommand
             throw new Exception('Secret value cannot be empty');
         }
 
-        $brefCloud = new BrefCloudClient;
+        $brefCloud = $this->brefCloud ?? new BrefCloudClient;
 
         // Resolve team slug to team ID
         $teams = $brefCloud->listTeams();
@@ -96,31 +105,9 @@ class SecretCreate extends ApplicationCommand
         }
 
         if ($awsAccountId === null) {
-            // Environment doesn't exist or isn't deployed, need to select AWS account and region
-            $awsAccounts = $brefCloud->listAwsAccounts();
-            if (empty($awsAccounts)) {
-                throw new Exception('No AWS accounts found. Please connect an AWS account first using "bref connect".');
-            }
-            $awsAccountsByName = [];
-            foreach ($awsAccounts as $account) {
-                $awsAccountsByName[$account['name']] = $account['id'];
-            }
-            $awsAccountName = IO::ask(new ChoiceQuestion(
-                'Select the AWS account:',
-                array_keys($awsAccountsByName),
-            ));
-            if (! is_string($awsAccountName)) {
-                throw new Exception('No AWS account selected');
-            }
-            $awsAccountId = $awsAccountsByName[$awsAccountName];
-
-            $region = IO::ask(new ChoiceQuestion(
-                'Select the AWS region:',
-                BrefCloudClient::AWS_REGIONS,
-            ));
-            if (! is_string($region)) {
-                throw new Exception('No region selected');
-            }
+            // The environment doesn't exist or isn't deployed: the secret is created in the AWS account and region it will be deployed to
+            $awsAccountId = $this->selectAwsAccount($input, $brefCloud, $teamId);
+            $region = $this->selectRegion($input, $configRegion);
         }
 
         IO::spin('Creating secret');
@@ -128,5 +115,65 @@ class SecretCreate extends ApplicationCommand
         IO::spinSuccess('Secret created');
 
         return 0;
+    }
+
+    private function selectAwsAccount(InputInterface $input, BrefCloudClient $brefCloud, int $teamId): int
+    {
+        // The API returns the AWS accounts of all the user's teams
+        $awsAccountsByName = [];
+        foreach ($brefCloud->listAwsAccounts() as $account) {
+            if ($account['team_id'] === $teamId) {
+                $awsAccountsByName[$account['name']] = $account['id'];
+            }
+        }
+        if (empty($awsAccountsByName)) {
+            throw new Exception('No AWS accounts found. Please connect an AWS account first using "bref connect".');
+        }
+
+        $awsAccountName = $input->getOption('aws-account');
+        if (is_string($awsAccountName) && $awsAccountName !== '') {
+            if (! isset($awsAccountsByName[$awsAccountName])) {
+                throw new Exception("AWS account '$awsAccountName' not found in the team, the AWS accounts are: " . implode(', ', array_keys($awsAccountsByName)));
+            }
+            return $awsAccountsByName[$awsAccountName];
+        }
+        if (count($awsAccountsByName) === 1) {
+            return reset($awsAccountsByName);
+        }
+        if (! $input->isInteractive()) {
+            throw new Exception('The environment is not deployed yet and the team has several AWS accounts: set the AWS account to use with the --aws-account option (' . implode(', ', array_keys($awsAccountsByName)) . ')');
+        }
+
+        $awsAccountName = IO::ask(new ChoiceQuestion(
+            'Select the AWS account:',
+            array_keys($awsAccountsByName),
+        ));
+        if (! is_string($awsAccountName)) {
+            throw new Exception('No AWS account selected');
+        }
+        return $awsAccountsByName[$awsAccountName];
+    }
+
+    private function selectRegion(InputInterface $input, ?string $configRegion): string
+    {
+        $region = $input->getOption('region');
+        if (is_string($region) && $region !== '') {
+            return $region;
+        }
+        if ($configRegion) {
+            return $configRegion;
+        }
+        if (! $input->isInteractive()) {
+            throw new Exception('The environment is not deployed yet: set the AWS region with the --region option');
+        }
+
+        $region = IO::ask(new ChoiceQuestion(
+            'Select the AWS region:',
+            BrefCloudClient::AWS_REGIONS,
+        ));
+        if (! is_string($region)) {
+            throw new Exception('No region selected');
+        }
+        return $region;
     }
 }
