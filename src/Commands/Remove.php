@@ -12,6 +12,12 @@ use function Amp\delay;
 
 class Remove extends ApplicationCommand
 {
+    public function __construct(
+        private readonly ?BrefCloudClient $brefCloud = null,
+    ) {
+        parent::__construct();
+    }
+
     protected function configure(): void
     {
         $this
@@ -35,12 +41,12 @@ class Remove extends ApplicationCommand
 
         IO::spin('removing');
 
-        $brefCloud = new BrefCloudClient;
+        $brefCloud = $this->brefCloud ?? new BrefCloudClient;
         $environment = $brefCloud->findEnvironment($team, $appName, $environmentName);
         $environmentId = $environment['id'];
 
         IO::verbose('Triggering asynchronous removal of environment ' . $environmentId);
-        $brefCloud->removeEnvironment($environmentId);
+        $message = $brefCloud->removeEnvironment($environmentId);
 
         while (true) {
             try {
@@ -55,6 +61,10 @@ class Remove extends ApplicationCommand
         }
 
         IO::spinSuccess('removed');
+
+        if ($message) {
+            IO::writeln(['', $message]);
+        }
 
         return 0;
     }

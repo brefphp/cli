@@ -3,6 +3,7 @@
 namespace Bref\Cli\Test\Commands;
 
 use Bref\Cli\BrefCloudClient;
+use Closure;
 use Laravel\AgentDetector\AgentDetector;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -39,7 +40,8 @@ abstract class CommandTestCase extends TestCase
     }
 
     /**
-     * @param array<string, mixed> $routes Responses indexed by path, a MockResponse or data to return as JSON.
+     * @param array<string, mixed> $routes Responses indexed by path, a MockResponse or data to return as JSON,
+     *                                    or a closure that returns one of those for the HTTP method.
      */
     protected function brefCloud(array $routes): BrefCloudClient
     {
@@ -54,7 +56,9 @@ abstract class CommandTestCase extends TestCase
                 $this->fail("Unexpected request: $method $url");
             }
 
-            return $routes[$path] instanceof MockResponse ? $routes[$path] : $this->json($routes[$path]);
+            $response = $routes[$path] instanceof Closure ? $routes[$path]($method) : $routes[$path];
+
+            return $response instanceof MockResponse ? $response : $this->json($response);
         }, 'https://bref.cloud');
 
         return new BrefCloudClient(client: $client);
