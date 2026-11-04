@@ -95,6 +95,7 @@ class SecretCreate extends ApplicationCommand
                 // Environment is deployed, use its aws_account_id and region
                 $awsAccountId = $existingEnv['aws_account_id'];
                 $region = $existingEnv['region'];
+                $this->warnAboutIgnoredOptions($input, $brefCloud, $awsAccountId, $region);
             }
         } catch (HttpExceptionInterface $e) {
             if ($e->getResponse()->getStatusCode() !== 404) {
@@ -115,6 +116,30 @@ class SecretCreate extends ApplicationCommand
         IO::spinSuccess('Secret created');
 
         return 0;
+    }
+
+    /**
+     * The secret is created where the environment is deployed: warn if the options point elsewhere.
+     */
+    private function warnAboutIgnoredOptions(InputInterface $input, BrefCloudClient $brefCloud, ?int $awsAccountId, string $region): void
+    {
+        $regionOption = $input->getOption('region');
+        if (is_string($regionOption) && $regionOption !== '' && $regionOption !== $region) {
+            IO::warning("The environment is deployed in $region: the --region option is ignored, the secret is created in $region");
+        }
+
+        $awsAccountOption = $input->getOption('aws-account');
+        if (is_string($awsAccountOption) && $awsAccountOption !== '') {
+            $awsAccountName = null;
+            foreach ($brefCloud->listAwsAccounts() as $account) {
+                if ($account['id'] === $awsAccountId) {
+                    $awsAccountName = $account['name'];
+                }
+            }
+            if ($awsAccountName !== $awsAccountOption) {
+                IO::warning("The environment is deployed in the AWS account '$awsAccountName': the --aws-account option is ignored, the secret is created in that account");
+            }
+        }
     }
 
     private function selectAwsAccount(InputInterface $input, BrefCloudClient $brefCloud, int $teamId): int

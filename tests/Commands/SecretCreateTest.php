@@ -26,6 +26,29 @@ class SecretCreateTest extends CommandTestCase
         $this->assertSecretCreatedIn(1, 'us-east-1');
     }
 
+    public function test_options_pointing_elsewhere_than_the_deployed_environment_are_ignored_with_a_warning(): void
+    {
+        $output = $this->createSecret(['--app' => 'shop', '--team' => 'acme', '--env' => 'prod', '--aws-account' => 'staging', '--region' => 'eu-west-3'], [
+            '/api/v1/environments/find' => $this->environment(),
+            '/api/v1/aws-accounts' => self::AWS_ACCOUNTS,
+        ]);
+
+        $this->assertSecretCreatedIn(1, 'us-east-1');
+        $this->assertStringContainsString('The environment is deployed in us-east-1: the --region option is ignored, the secret is created in us-east-1', $output);
+        $this->assertStringContainsString("The environment is deployed in the AWS account 'production': the --aws-account option is ignored, the secret is created in that account", $output);
+    }
+
+    public function test_options_matching_the_deployed_environment_do_not_warn(): void
+    {
+        $output = $this->createSecret(['--app' => 'shop', '--team' => 'acme', '--env' => 'prod', '--aws-account' => 'production', '--region' => 'us-east-1'], [
+            '/api/v1/environments/find' => $this->environment(),
+            '/api/v1/aws-accounts' => self::AWS_ACCOUNTS,
+        ]);
+
+        $this->assertSecretCreatedIn(1, 'us-east-1');
+        $this->assertStringNotContainsString('ignored', $output);
+    }
+
     public function test_an_environment_not_deployed_yet_uses_the_options(): void
     {
         $this->createSecret(['--app' => 'shop', '--team' => 'acme', '--env' => 'prod', '--aws-account' => 'production', '--region' => 'eu-west-3'], [
@@ -78,7 +101,7 @@ class SecretCreateTest extends CommandTestCase
      * @param array<string, mixed> $options
      * @param array<string, mixed> $routes
      */
-    private function createSecret(array $options, array $routes): void
+    private function createSecret(array $options, array $routes): string
     {
         $input = new ArrayInput(['name' => 'APP_KEY', 'value' => 'secret', ...$options]);
         $input->setInteractive(false);
@@ -90,7 +113,11 @@ class SecretCreateTest extends CommandTestCase
             '/api/v1/secrets' => $this->json(['secret_path' => '/shop/prod/APP_KEY'], 201),
             ...$routes,
         ]));
-        $this->assertSame(0, $command->run($input, $output), $output->fetch());
+        $status = $command->run($input, $output);
+        $display = $output->fetch();
+        $this->assertSame(0, $status, $display);
+
+        return $display;
     }
 
     private function assertSecretCreatedIn(int $awsAccountId, string $region): void
