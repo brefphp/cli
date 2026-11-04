@@ -302,10 +302,12 @@ class BrefCloudClient
     /**
      * @return string|null A message from Bref Cloud to show once the environment is removed.
      */
-    public function removeEnvironment(int $environmentId): ?string
+    public function removeEnvironment(int $environmentId, bool $deleteSecrets = false): ?string
     {
         /** @var array{message?: string|null} $result */
-        $result = $this->client->request('DELETE', '/api/v1/environments/' . $environmentId)->toArray();
+        $result = $this->client->request('DELETE', '/api/v1/environments/' . $environmentId, [
+            'json' => ['delete_secrets' => $deleteSecrets],
+        ])->toArray();
 
         return $result['message'] ?? null;
     }

@@ -6,6 +6,7 @@ use Bref\Cli\BrefCloudClient;
 use Bref\Cli\Cli\IO;
 use Bref\Cli\Cli\Styles;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use function Amp\delay;
@@ -22,7 +23,8 @@ class Remove extends ApplicationCommand
     {
         $this
             ->setName('remove')
-            ->setDescription('Remove an environment of an application');
+            ->setDescription('Remove an environment of an application')
+            ->addOption('delete-secrets', null, InputOption::VALUE_NONE, 'Also delete the secrets of the environment (kept by default, so that deploying it again reuses them)');
         parent::configure();
     }
 
@@ -46,7 +48,7 @@ class Remove extends ApplicationCommand
         $environmentId = $environment['id'];
 
         IO::verbose('Triggering asynchronous removal of environment ' . $environmentId);
-        $message = $brefCloud->removeEnvironment($environmentId);
+        $message = $brefCloud->removeEnvironment($environmentId, (bool) $input->getOption('delete-secrets'));
 
         while (true) {
             try {

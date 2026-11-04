@@ -17,6 +17,15 @@ class RemoveTest extends CommandTestCase
         $this->assertStringContainsString('Secrets of this environment are kept in SSM Parameter Store under /shop/prod/.', $display);
     }
 
+    public function test_secrets_are_kept_unless_asked(): void
+    {
+        $this->remove([]);
+        $this->assertSame(['delete_secrets' => false], $this->requestBodies['/api/v1/environments/12']);
+
+        $this->remove([], ['--delete-secrets' => true]);
+        $this->assertSame(['delete_secrets' => true], $this->requestBodies['/api/v1/environments/12']);
+    }
+
     public function test_bref_cloud_may_return_no_message(): void
     {
         [$status, $display] = $this->remove([]);
@@ -27,9 +36,10 @@ class RemoveTest extends CommandTestCase
 
     /**
      * @param array<string, mixed> $deletion What Bref Cloud returns when asked to remove the environment
+     * @param array<string, mixed> $options Options of the command
      * @return array{int, string} The exit code and the output
      */
-    private function remove(array $deletion): array
+    private function remove(array $deletion, array $options = []): array
     {
         $command = new Remove($this->brefCloud([
             '/api/v1/environments/find' => $this->environment(),
@@ -39,7 +49,7 @@ class RemoveTest extends CommandTestCase
         ]));
         $configFile = sys_get_temp_dir() . '/bref-cli-test-' . bin2hex(random_bytes(4)) . '.yml';
         file_put_contents($configFile, "service: shop\nbref:\n    team: acme\n");
-        $input = new ArrayInput(['--env' => 'prod', '--config' => $configFile]);
+        $input = new ArrayInput(['--env' => 'prod', '--config' => $configFile, ...$options]);
         $input->setInteractive(false);
         $output = new BufferedOutput;
         IO::init($input, $output);
