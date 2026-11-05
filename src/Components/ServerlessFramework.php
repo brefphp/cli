@@ -183,8 +183,8 @@ class ServerlessFramework
         }
 
         // Remove API Gateway URLs with invalid YAML content from the output,
-        // i.e. lines containing `  ANY - ` or `  GET - ` or `  POST - ` or `  PUT - ` or `  DELETE - ` or `  PATCH - ` or `  OPTIONS - ` or `  HEAD - `
-        $infoOutput = preg_replace('/^ {2}(ANY|GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD) - .*\n/m', '', $infoOutput);
+        // i.e. lines containing `  ANY - ` or `  GET - ` or `  POST - ` or `  PUT - ` or `  DELETE - ` or `  PATCH - ` or `  OPTIONS - ` or `  HEAD - ` or `  wss://`
+        $infoOutput = preg_replace('/^ {2}((ANY|GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD) - |wss:\/\/).*\n/m', '', $infoOutput);
         if (! $infoOutput) {
             throw new Exception("Impossible to parse the output of 'serverless info':\n$infoOutput");
         }
