@@ -23,7 +23,7 @@ class ApplicationCommand extends Command
      *     appName: string,
      *     environmentName: string,
      *     team: string,
-     *     config: array{name: string, team: string, type: string},
+     *     config: array{name: string, team: string, type: string, region?: string|null},
      *     configFileName: string|null,
      * }
      */
@@ -51,7 +51,7 @@ class ApplicationCommand extends Command
      *
      * With `--app` and `--team`, no config file is needed: the command works outside the project directory.
      *
-     * @return array{appName: string, environmentName: string, team: string}
+     * @return array{appName: string, environmentName: string, team: string, region: string|null} The region is the one set in the config file, if any.
      */
     protected function parseEnvironmentOptions(InputInterface $input): array
     {
@@ -63,14 +63,20 @@ class ApplicationCommand extends Command
         $team = is_string($team) && $team !== '' ? $team : null;
 
         if ($app && $team) {
-            return ['appName' => $app, 'environmentName' => $environment, 'team' => $team];
+            return ['appName' => $app, 'environmentName' => $environment, 'team' => $team, 'region' => null];
         }
 
         if (! $input->getOption('config') && ! is_file('bref.php') && ! is_file('serverless.yml')) {
             throw new Exception('No "bref.php" or "serverless.yml" file in the current directory: run the command in the project directory, or set the application with the --app and --team options.');
         }
-        ['appName' => $appName, 'team' => $configTeam] = $this->parseStandardOptions($input);
+        ['appName' => $appName, 'team' => $configTeam, 'config' => $config] = $this->parseStandardOptions($input);
+        $region = $config['region'] ?? null;
 
-        return ['appName' => $app ?? $appName, 'environmentName' => $environment, 'team' => $configTeam];
+        return [
+            'appName' => $app ?? $appName,
+            'environmentName' => $environment,
+            'team' => $configTeam,
+            'region' => is_string($region) && $region !== '' ? $region : null,
+        ];
     }
 }

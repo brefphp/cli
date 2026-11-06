@@ -103,7 +103,7 @@ class BrefCloudClient
     }
 
     /**
-     * @param array<string, string> $config
+     * @param array<string, mixed> $config
      * @return array{
      *     deploymentId: int,
      *     message: string,

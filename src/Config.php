@@ -10,7 +10,7 @@ use Symfony\Component\Yaml\Yaml;
 class Config
 {
     /**
-     * @return array{name: string, team: string, type: string}
+     * @return array{name: string, team: string, type: string, region?: string|null}
      * @throws Exception
      */
     public static function loadConfig(?string $fileName, ?string $environment, ?string $overrideTeam): array
@@ -35,7 +35,7 @@ class Config
     }
 
     /**
-     * @return array{name: string, team: string, type: string}
+     * @return array{name: string, team: string, type: string, region?: string|null}
      */
     private static function loadServerlessConfig(string $fileName, ?string $overrideTeam): array
     {
@@ -86,7 +86,7 @@ class Config
     }
 
     /**
-     * @return array{name: string, team: string, type: string}
+     * @return array{name: string, team: string, type: string, region?: string|null}
      */
     private static function loadBrefConfig(string $fileName, ?string $environment, ?string $overrideTeam): array
     {
