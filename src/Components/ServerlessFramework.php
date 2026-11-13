@@ -30,7 +30,7 @@ class ServerlessFramework
     {
         $commonOptions = $this->commonOptions($input);
         $options = $commonOptions;
-        if ($input->hasOption('force')) {
+        if ($input->hasOption('force') && $input->getOption('force')) {
             $options[] = '--force';
         }
         $oslsPackage = ($input->hasOption('osls4') && $input->getOption('osls4')) ? 'osls@4' : 'osls@3';
