@@ -29,7 +29,10 @@ class ServerlessFramework
     public function deploy(int $deploymentId, string $environment, array $awsCredentials, BrefCloudClient $brefCloud, InputInterface $input): void
     {
         $commonOptions = $this->commonOptions($input);
-        $options = $this->deployOptions($input);
+        $options = $commonOptions;
+        if ($input->hasOption('force') && $input->getOption('force')) {
+            $options[] = '--force';
+        }
         $oslsPackage = ($input->hasOption('osls4') && $input->getOption('osls4')) ? 'osls@4' : 'osls@3';
 
         $newLogs = '';
@@ -111,21 +114,6 @@ class ServerlessFramework
 
             throw $e;
         }
-    }
-
-    /**
-     * The options of `serverless deploy`.
-     *
-     * @return list<string>
-     */
-    public function deployOptions(InputInterface $input): array
-    {
-        $options = $this->commonOptions($input);
-        if ($input->hasOption('force') && $input->getOption('force')) {
-            $options[] = '--force';
-        }
-
-        return $options;
     }
 
     /**

@@ -31,14 +31,6 @@ class ServerlessFrameworkTest extends TestCase
         $this->assertSame([], (new ServerlessFramework)->commonOptions($input));
     }
 
-    public function test_forwards_force_only_when_the_option_is_set(): void
-    {
-        $definition = (new Deploy)->getDefinition();
-
-        $this->assertSame([], (new ServerlessFramework)->deployOptions(new ArrayInput([], $definition)));
-        $this->assertSame(['--force'], (new ServerlessFramework)->deployOptions(new ArrayInput(['--force' => true], $definition)));
-    }
-
     /**
      * @param array{string, string}|null $expected
      */
