@@ -174,6 +174,16 @@ class Deploy extends ApplicationCommand
                 IO::spinSuccess($deployment['message'], $deployment['app_url'] ?? null);
                 return 0;
             }
+            // Superseded by a newer deployment of the environment, which is not an error
+            if ($deployment['status'] === 'canceled') {
+                IO::spinSuccess($deployment['message']);
+                IO::writeln([
+                    Styles::gray($deployment['error_message'] ?? 'The deployment was canceled'),
+                    '',
+                    Styles::gray('Deployment logs: ' . $deployment['url']),
+                ]);
+                return 0;
+            }
             if ($deployment['status'] === 'failed') {
                 IO::spinError($deployment['message']);
                 IO::writeln([
