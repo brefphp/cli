@@ -141,12 +141,26 @@ class Deploy extends ApplicationCommand
             }
         }
 
-        $startTime = time();
+        // A deployment can wait for another one of the same environment before it starts:
+        // the timeout only counts from the moment it no longer waits
+        $timeout = 15 * 60;
+        $deadline = time() + $timeout;
         $deployLogs = [];
+        $spinnerMessage = null;
 
-        // Timeout after 15 minutes
-        while (time() - $startTime < 15 * 60) {
+        while (time() < $deadline) {
             $deployment = $brefCloud->getDeployment($deploymentId);
+
+            if ($deployment['status'] === 'deploying') {
+                if ($deployment['message'] === 'waiting') {
+                    $deadline = time() + $timeout;
+                }
+                // E.g. "waiting" while another deployment of the environment runs
+                if ($deployment['message'] !== $spinnerMessage) {
+                    $spinnerMessage = $deployment['message'];
+                    IO::spin($spinnerMessage);
+                }
+            }
 
             // Logs
             if (! $isServerlessFrameworkDeploy) {
