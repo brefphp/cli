@@ -50,16 +50,39 @@ class Remove extends ApplicationCommand
         IO::verbose('Triggering asynchronous removal of environment ' . $environmentId);
         $message = $brefCloud->removeEnvironment($environmentId, (bool) $input->getOption('delete-secrets'));
 
+        // Bref Cloud says why the removal takes long, or why it failed
+        $shownMessage = null;
         while (true) {
             try {
-                $brefCloud->getEnvironment($environmentId);
+                $removal = $brefCloud->getEnvironment($environmentId)['removal'] ?? null;
             } catch (HttpExceptionInterface $e) {
                 if ($e->getResponse()->getStatusCode() === 404) {
                     break;
                 }
+                $removal = null;
             }
 
-            delay(1);
+            // Only AWS cleaning up is left (e.g. network interfaces of functions in a VPC): Bref
+            // Cloud finishes the removal, there is nothing for the user to wait for
+            if (($removal['status'] ?? null) === 'finishing') {
+                IO::spinSuccess('removed');
+                IO::writeln(['', Styles::gray($removal['message'] ?? 'Bref Cloud finishes the removal in the background.')]);
+                break;
+            }
+            if (($removal['status'] ?? null) === 'failed') {
+                IO::spinError('failed');
+                IO::writeln(Styles::bold(Styles::red($removal['message'] ?? 'Unknown error')));
+                return 1;
+            }
+            $progress = $removal['message'] ?? null;
+            if ($progress !== null && $progress !== $shownMessage) {
+                IO::spinClear();
+                IO::writeln([Styles::gray($progress), '']);
+                IO::spin('removing');
+                $shownMessage = $progress;
+            }
+
+            delay(3);
         }
 
         IO::spinSuccess('removed');
