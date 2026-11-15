@@ -260,6 +260,7 @@ class BrefCloudClient
      *     outputs: array<string, string>,
      *     app: array{id: int, name: string},
      *     aws_account_id: int|null,
+     *     removal?: array{status: string, message: string|null}|null,
      * }
      *
      * @throws HttpExceptionInterface
@@ -267,7 +268,7 @@ class BrefCloudClient
      */
     public function getEnvironment(int $id): array
     {
-        /** @var array{id: int, name: string, region: string|null, url: string|null, outputs: array<string, string>, app: array{id: int, name: string}, aws_account_id: int|null} $result */
+        /** @var array{id: int, name: string, region: string|null, url: string|null, outputs: array<string, string>, app: array{id: int, name: string}, aws_account_id: int|null, removal?: array{status: string, message: string|null}|null} $result */
         $result = $this->client->request('GET', '/api/v1/environments/' . $id)->toArray();
 
         return $result;
