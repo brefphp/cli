@@ -141,12 +141,26 @@ class Deploy extends ApplicationCommand
             }
         }
 
-        $startTime = time();
+        // A deployment can wait for another one of the same environment before it starts:
+        // the timeout only counts from the moment it no longer waits
+        $timeout = 15 * 60;
+        $deadline = time() + $timeout;
         $deployLogs = [];
+        $spinnerMessage = null;
 
-        // Timeout after 15 minutes
-        while (time() - $startTime < 15 * 60) {
+        while (time() < $deadline) {
             $deployment = $brefCloud->getDeployment($deploymentId);
+
+            if ($deployment['status'] === 'deploying') {
+                if ($deployment['message'] === 'waiting') {
+                    $deadline = time() + $timeout;
+                }
+                // E.g. "waiting" while another deployment of the environment runs
+                if ($deployment['message'] !== $spinnerMessage) {
+                    $spinnerMessage = $deployment['message'];
+                    IO::spin($spinnerMessage);
+                }
+            }
 
             // Logs
             if (! $isServerlessFrameworkDeploy) {
@@ -158,6 +172,16 @@ class Deploy extends ApplicationCommand
 
             if ($deployment['status'] === 'success') {
                 IO::spinSuccess($deployment['message'], $deployment['app_url'] ?? null);
+                return 0;
+            }
+            // Superseded by a newer deployment of the environment, which is not an error
+            if ($deployment['status'] === 'canceled') {
+                IO::spinSuccess($deployment['message']);
+                IO::writeln([
+                    Styles::gray($deployment['error_message'] ?? 'The deployment was canceled'),
+                    '',
+                    Styles::gray('Deployment logs: ' . $deployment['url']),
+                ]);
                 return 0;
             }
             if ($deployment['status'] === 'failed') {
