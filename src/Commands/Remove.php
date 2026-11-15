@@ -62,6 +62,13 @@ class Remove extends ApplicationCommand
                 $removal = null;
             }
 
+            // Only AWS cleaning up is left (e.g. network interfaces of functions in a VPC): Bref
+            // Cloud finishes the removal, there is nothing for the user to wait for
+            if (($removal['status'] ?? null) === 'finishing') {
+                IO::spinSuccess('removed');
+                IO::writeln(['', Styles::gray($removal['message'] ?? 'Bref Cloud finishes the removal in the background.')]);
+                break;
+            }
             if (($removal['status'] ?? null) === 'failed') {
                 IO::spinError('failed');
                 IO::writeln(Styles::bold(Styles::red($removal['message'] ?? 'Unknown error')));

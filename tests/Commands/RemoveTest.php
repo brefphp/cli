@@ -44,6 +44,18 @@ class RemoveTest extends CommandTestCase
         $this->assertStringContainsString('removed', $display);
     }
 
+    public function test_stops_waiting_when_only_aws_cleanup_is_left(): void
+    {
+        $finishing = ['status' => 'finishing', 'message' => 'AWS releases the network interfaces of shop-prod-web in the background.'];
+        // The environment is still there afterwards: the command does not wait for it
+        [$status, $display] = $this->remove(['message' => 'Secrets are kept.'], polls: [$finishing, $finishing, $finishing]);
+
+        $this->assertSame(0, $status, $display);
+        $this->assertStringContainsString('removed', $display);
+        $this->assertStringContainsString('AWS releases the network interfaces of shop-prod-web in the background.', $display);
+        $this->assertStringContainsString('Secrets are kept.', $display);
+    }
+
     public function test_stops_when_the_removal_fails(): void
     {
         [$status, $display] = $this->remove([], polls: [['status' => 'failed', 'message' => 'AWS could not delete everything: bucket not empty']]);
