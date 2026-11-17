@@ -347,6 +347,29 @@ class BrefCloudClient
     }
 
     /**
+     * The output of the command from $offset: what has not been printed yet.
+     *
+     * @return array{
+     *     status: 'not_started'|'started'|'success'|'failed',
+     *     output: string,
+     *     offset: int,
+     *     error: string|null,
+     * } `offset`: where the next call starts. `error`: why the command failed, when known.
+     *
+     * @throws HttpExceptionInterface
+     * @throws ExceptionInterface
+     */
+    public function getCommandOutput(int $id, int $offset): array
+    {
+        /** @var array{status: 'not_started'|'started'|'success'|'failed', output: string, offset: int, error: string|null} $result */
+        $result = $this->client->request('GET', "/api/v1/commands/$id", [
+            'query' => ['offset' => $offset],
+        ])->toArray();
+
+        return $result;
+    }
+
+    /**
      * @return list<array{id: int, name: string, role_arn: string, team_id: int}>
      *
      * @throws HttpExceptionInterface
