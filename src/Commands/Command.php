@@ -48,68 +48,35 @@ class Command extends ApplicationCommand
 
         IO::spin('running');
 
-        // Timeout after 2 minutes and 10 seconds
-        $timeout = 130;
-        $startTime = time();
-
+        $offset = 0;
         while (true) {
-            $invocation = $brefCloud->getCommand($id);
+            $invocation = $brefCloud->getCommandOutput($id, $offset);
+            $offset = $invocation['offset'];
+
+            if ($invocation['output'] !== '') {
+                // The output shows that the command runs
+                IO::spinClear();
+                // As is: the output of the command is not formatted for Symfony Console.
+                // Complete lines, and writeRaw() ends each with a line break.
+                $output = $invocation['output'];
+                IO::writeRaw(str_ends_with($output, "\n") ? substr($output, 0, -1) : $output);
+            }
 
             if ($invocation['status'] === 'success') {
                 IO::spinClear();
-                // As is: the output of the command is not formatted for Symfony Console
-                IO::writeRaw($invocation['output']);
                 return 0;
             }
 
             if ($invocation['status'] === 'failed') {
                 IO::spinClear();
-                $this->writeErrorDetails($invocation['output']);
-                return 1;
-            }
-
-            if ((time() - $startTime) > $timeout) {
-                IO::spinClear();
-                IO::writeln(Styles::red('Timed out'));
-                IO::writeln(Styles::gray('The execution timed out after 2 minutes, the command might still be running'));
+                IO::writeln([
+                    '',
+                    Styles::bold(Styles::red('ERROR')) . '   ' . Styles::gray($invocation['error'] ?? 'The command failed'),
+                ]);
                 return 1;
             }
 
             delay(1);
-        }
-    }
-
-    private function writeErrorDetails(string $output): void
-    {
-        try {
-            $errorDetails = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
-            if (! is_array($errorDetails)
-                || ! isset($errorDetails['errorType'], $errorDetails['errorMessage'])
-                || ! is_string($errorDetails['errorType'])
-                || ! is_string($errorDetails['errorMessage'])) {
-                IO::writeRaw(Styles::red($output));
-                return;
-            }
-
-            $errorType = $errorDetails['errorType'];
-            if ($errorType === 'Bref\ConsoleRuntime\CommandFailed') {
-                // No need to show this class, it's noise
-                $errorType = '';
-            }
-
-            IO::writeln([
-                '',
-                Styles::bold(Styles::red('ERROR')) . '   ' . Styles::gray($errorType),
-                '',
-            ]);
-            // The output of the command
-            IO::writeRaw($errorDetails['errorMessage']);
-            if (isset($errorDetails['stackTrace']) && is_array($errorDetails['stackTrace'])) {
-                $stackTrace = array_values(array_filter($errorDetails['stackTrace'], 'is_string'));
-                IO::verbose($stackTrace);
-            }
-        } catch (JsonException) {
-            IO::writeRaw(Styles::red($output));
         }
     }
 }
