@@ -33,7 +33,8 @@ class ServerlessFramework
         if ($input->hasOption('force') && $input->getOption('force')) {
             $options[] = '--force';
         }
-        $oslsPackage = ($input->hasOption('osls4') && $input->getOption('osls4')) ? 'osls@4' : 'osls@3';
+        // A minimum version, not `osls@4`: npx would run any osls 4 already installed, e.g. one too old for Bref v4
+        $oslsPackage = ($input->hasOption('osls3') && $input->getOption('osls3')) ? 'osls@3' : 'osls@^4.9.0';
 
         $newLogs = '';
         // The whole output ($newLogs is emptied when pushed to Bref Cloud)

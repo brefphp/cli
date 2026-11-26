@@ -40,7 +40,9 @@ class Deploy extends ApplicationCommand
             ->setName('deploy')
             ->setDescription('Deploy the application')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Force the deployment')
-            ->addOption('osls4', null, InputOption::VALUE_NONE, 'Use osls@4 instead of osls@3')
+            ->addOption('osls3', null, InputOption::VALUE_NONE, 'Deploy with osls 3 instead of osls 4 (for applications that osls 4 rejects)')
+            // osls 4 is the default now, the option is kept for the scripts that pass it
+            ->addOption('osls4', null, InputOption::VALUE_NONE, 'Deprecated: osls 4 is the default')
             ->addOption('param', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Pass a parameter to serverless.yml, e.g. --param="key=value" (can be repeated)');
         parent::configure();
     }
